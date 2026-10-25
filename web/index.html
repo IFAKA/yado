@@ -1,0 +1,129 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tadpole EPAC trike</title>
+<style>
+body{margin:0;font:13px system-ui,sans-serif;background:#1b1e24;color:#ddd;overflow:hidden}
+#ui{position:absolute;top:0;left:0;width:270px;height:100%;overflow:auto;background:#252932;padding:10px;box-sizing:border-box}
+#info{position:absolute;right:0;top:0;width:300px;background:#252932cc;padding:10px;box-sizing:border-box;min-height:60px}
+h3{margin:10px 0 4px;font-size:12px;color:#8fb;text-transform:uppercase}
+label{display:block;margin:2px 0}input[type=range]{width:100%}button{margin:2px 2px 2px 0;background:#3a4150;color:#eee;border:0;padding:5px 9px;border-radius:3px;cursor:pointer}
+button:hover{background:#4a5266}small{color:#999}.sw{display:inline-block;width:10px;height:10px;margin-right:5px}
+#tip{position:absolute;pointer-events:none;background:#000a;padding:2px 6px;border-radius:3px;display:none}
+</style></head><body>
+<div id="ui">
+<b style="font-size:15px">Tadpole EPAC trike</b><br><small>One-off build model. Not certified or legal. Estimates, see Open issues.</small>
+<h3>Explode</h3><input id="ex" type="range" min="0" max="1" step="0.005" value="0">
+<button id="play">Play / pause</button><button id="reset">Reset view</button>
+<h3>Drive</h3><button id="pov" style="background:#2f7d4f">POV: drive it</button><br><small>POV: W/S speed, A/D steer, Space brake, drag = look, wheel = zoom, Esc = exit</small>
+<h3>View</h3>
+<button data-v="iso">Iso</button><button data-v="side">Side</button><button data-v="top">Top</button><button data-v="front">Front</button><button data-v="bottom">Bottom</button>
+<label>Canopy opacity <input id="co" type="range" min="0" max="1" step="0.02" value="0.25"></label>
+<label><input type="checkbox" id="fast"> show fasteners</label>
+<label><input type="checkbox" id="cab"> show cables</label>
+<label><input type="checkbox" id="wire"> wireframe</label>
+<label><input type="checkbox" id="prid" checked> show rider (172 cm) inside</label>
+<label><input type="checkbox" id="pstd" checked> show standing person (172 cm) beside</label>
+<h3>Subassemblies</h3><div id="subs"></div>
+<button id="iso">Isolate selected sub</button><button id="all">Show all</button>
+<h3>Totals</h3><div id="tot"></div>
+</div><div id="info">Click a part.</div><div id="tip"></div>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+let pov=false;
+const man=await (await fetch('manifest.json?'+Date.now())).json();
+const R=new THREE.WebGLRenderer({antialias:true});R.setSize(innerWidth,innerHeight);R.setPixelRatio(devicePixelRatio);document.body.appendChild(R.domElement);
+const S=new THREE.Scene();S.background=new THREE.Color(0x1b1e24);
+const cam=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,0.01,50);
+const ctl=new OrbitControls(cam,R.domElement);ctl.target.set(-0.35,0.45,0);ctl.enableDamping=true;
+S.add(new THREE.HemisphereLight(0xffffff,0x444455,1.1));const dl=new THREE.DirectionalLight(0xffffff,1.6);dl.position.set(2,4,3);S.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,0.6);dl2.position.set(-3,2,-3);S.add(dl2);
+const grid=new THREE.GridHelper(4,40,0x555a66,0x333843);grid.position.set(-0.4,0,0);S.add(grid);
+const veh=new THREE.Group();S.add(veh);const gl=await new GLTFLoader().loadAsync('model.glb');veh.add(gl.scene);
+const posts=new THREE.Group();S.add(posts);{const g=new THREE.CylinderGeometry(0.06,0.06,1.2,10),m=new THREE.MeshStandardMaterial({color:0xe0a030});
+ for(let i=-40;i<=40;i++)for(const sd of[-3,3]){const p=new THREE.Mesh(g,m);p.position.set(i*4,0.6,sd+(Math.sin(i*1.7)*0.8));posts.add(p)}
+ const g2=new THREE.BoxGeometry(1.2,0.01,0.1),m2_=new THREE.MeshBasicMaterial({color:0x777f8f});for(let i=-100;i<=100;i++){const d=new THREE.Mesh(g2,m2_);d.position.set(i*2,0.006,0);d.scale.set(1,1,1);posts.add(d)}}
+
+// manikin: capsules between joints, sizes from stature H (Drillis-Contini style ratios, estimates)
+function limb(a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a),L=d.length();const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,Math.max(L-2*r,0.001),4,10),mat);m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m}
+function manikin(H,j,col){const g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:col,roughness:0.8}),V=(x,y,z)=>new THREE.Vector3(x,y,z);
+ const add=(a,b,r)=>g.add(limb(a,b,r*H,mat));
+ const hip=j.hip,sh=j.sho,neck=j.neck,head=j.head;
+ add(hip,sh,0.065);add(sh,neck,0.03);const hd=new THREE.Mesh(new THREE.SphereGeometry(0.065*H,16,12),mat);hd.position.copy(head);hd.userData.head=true;g.add(hd);
+ for(const s of[-1,1]){const o=V(0,0,s*0.10*H/1.72*1.0);const hp=hip.clone().add(V(0,0,s*0.05)),sp=sh.clone().add(V(0,0,s*0.20*H/1.72*0.9));
+  add(hp,j.knee[s],0.045);add(j.knee[s],j.ankle[s],0.036);add(j.ankle[s],j.toe[s],0.028);add(sp,j.elb[s],0.030);add(j.elb[s],j.hand[s],0.024)}
+ return g}
+const Hh=man.rider.H,rd=man.rider,T3=a=>new THREE.Vector3(...a);
+const hip=T3(rd.hip),up=new THREE.Vector3(Math.sin(rd.rec)*-1,Math.cos(rd.rec),0);
+const sho=hip.clone().addScaledVector(up,0.30*Hh),neck=hip.clone().addScaledVector(up,0.34*Hh),head=hip.clone().addScaledVector(up,0.43*Hh).add(new THREE.Vector3(0.03,0,0));
+const jr={hip,sho,neck,head,knee:{},ankle:{},toe:{},elb:{},hand:{}};
+[-1,1].forEach((s,i)=>{const L=rd.legs[1-i],k=T3(L.knee),a=T3(L.ankle),pd=T3(L.ped);const off=s*0.09;k.z+=off*0.8;a.z+=off;pd.z+=off;jr.knee[s]=k;jr.ankle[s]=a;jr.toe[s]=pd.clone().add(new THREE.Vector3(0.09,0,0));
+ const gp=T3(rd.grips[s>0?1:0]);const shp=sho.clone();shp.z+=s*0.20*Hh/1.72*0.9;jr.hand[s]=gp;const mid=shp.clone().add(gp).multiplyScalar(0.5);mid.z+=s*0.04;mid.y-=0.08;jr.elb[s]=mid});
+const rider=manikin(Hh,jr,0xe8a33d);rider.traverse(o=>{if(o.isMesh)o.userData.skip=true});veh.add(rider);
+// standing person next to the trike, facing forward (+x), feet on the ground
+const h=Hh,Z=1.0,X=-0.3,st={hip:new THREE.Vector3(X,0.53*h,Z),sho:new THREE.Vector3(X,0.82*h,Z),neck:new THREE.Vector3(X,0.87*h,Z),head:new THREE.Vector3(X,0.935*h,Z),knee:{},ankle:{},toe:{},elb:{},hand:{}};
+[-1,1].forEach(s=>{st.knee[s]=new THREE.Vector3(X,0.285*h,Z+s*0.09);st.ankle[s]=new THREE.Vector3(X,0.04*h,Z+s*0.09);st.toe[s]=new THREE.Vector3(X+0.17*h/1.72,0.02,Z+s*0.09);st.elb[s]=new THREE.Vector3(X,0.62*h,Z+s*0.21);st.hand[s]=new THREE.Vector3(X,0.43*h,Z+s*0.22)});
+const person=manikin(h,st,0x6fa8dc);S.add(person);
+const $g=id=>document.getElementById(id);$g('prid').onchange=()=>{rider.visible=$g('prid').checked};$g('pstd').onchange=()=>{person.visible=$g('pstd').checked};
+const byId={};man.parts.forEach(p=>byId[p.id]=p);
+const objs=[];gl.scene.traverse(o=>{if(o.isMesh){const p=byId[o.name]||byId[o.parent&&o.parent.name];if(!p)return;o.userData.p=p;
+ const PAL={'Frame':0xc0504d,'Steering & front axle':0x4f81bd,'Rear swing-arm & wheel':0x9bbb59,'Drivetrain':0xf0a030,'Seat':0x8064a2,'Canopy':0xbfd8e8,'Electrics':0x4bacc6,'Fasteners':0x999999};const c=new THREE.Color(p.kind==='bought'&&/Tyre|Cable|rubber/i.test(p.name+p.material)?0x222222:PAL[p.sub]||0x888888);if(p.kind==='bought'&&p.sub!=='Canopy')c.multiplyScalar(0.8);o.material=new THREE.MeshStandardMaterial({color:c,metalness:0.2,roughness:0.6,side:THREE.DoubleSide,transparent:true});o.userData.base=c;o.userData.node=o.parent&&byId[o.parent.name]?o.parent:o;objs.push(o);}});
+const nodeOf=o=>o.userData.node;
+// explode directions per subassembly (three coords: x fwd, y up, z = -Y)
+const DIR={"Frame":[0,0,0],"Steering & front axle":[1,0,0],"Rear swing-arm & wheel":[-1,-0.1,0],"Drivetrain":[0,-1,0.6],"Seat":[0,1,0],"Canopy":[0,2,0],"Electrics":[0,-1,-0.6],"Fasteners":[0,0,0]};
+const AMP=0.9, SP=0.5;
+const gc=new THREE.Vector3(...man.subs.Frame);
+objs.forEach(o=>{const p=o.userData.p,n=nodeOf(o);n.userData.home=n.position.clone();
+ const sc=new THREE.Vector3(...man.subs[p.sub]);const d=new THREE.Vector3(...DIR[p.sub]).multiplyScalar(AMP);
+ const sp=new THREE.Vector3(...p.c).sub(sc).multiplyScalar(SP);n.userData.ex=d.add(sp);
+ if(p.sub==="Fasteners"||p.kind==="fastener"){n.userData.ex.multiplyScalar(1.0)}});
+function explode(t){objs.forEach(o=>{const n=nodeOf(o);n.position.copy(n.userData.home).addScaledVector(n.userData.ex,t)})}
+const ex=document.getElementById('ex');ex.oninput=()=>explode(+ex.value);
+let playing=false,dir=1;document.getElementById('play').onclick=()=>playing=!playing;
+// subs UI
+const vis={};const subsDiv=document.getElementById('subs');let selSub=null;
+const colors={};objs.forEach(o=>{if(!colors[o.userData.p.sub])colors[o.userData.p.sub]='#'+o.userData.base.getHexString()});
+man.order.forEach(s=>{if(!man.subs[s])return;vis[s]=true;const l=document.createElement('label');
+ l.innerHTML=`<input type=checkbox checked> <span class=sw style="background:${colors[s]||'#888'}"></span><span class=nm>${s}</span>`;
+ l.querySelector('input').onchange=e=>{vis[s]=e.target.checked;upd()};l.querySelector('.nm').onclick=()=>{selSub=s;[...subsDiv.querySelectorAll('.nm')].forEach(x=>x.style.fontWeight=x.textContent==s?700:400)};subsDiv.appendChild(l)});
+const cb=id=>document.getElementById(id);
+function upd(){const co=+cb('co').value;objs.forEach(o=>{const p=o.userData.p;let v=vis[p.sub]!==false;
+ if(p.kind==="fastener"&&!cb('fast').checked)v=false;if(p.kind==="cable"&&!cb('cab').checked)v=false;
+ if(pov&&['TR-501','TR-502','TR-512'].includes(p.no))v=false;nodeOf(o).visible=v;o.material.wireframe=cb('wire').checked;
+ const canopy=p.sub==="Canopy"&&(p.kind==="panel");const pc=/PC/.test(p.material);o.material.opacity=pc&&p.kind==='panel'?0.22:(canopy?co:1);o.material.depthWrite=!(canopy||pc)||co>0.9})}
+['co','fast','cab','wire'].forEach(i=>cb(i).oninput=cb(i).onchange=upd);
+cb('iso').onclick=()=>{if(!selSub)return;man.order.forEach(s=>vis[s]=s===selSub);[...subsDiv.querySelectorAll('input')].forEach((x,i)=>x.checked=vis[x.parentNode.querySelector('.nm').textContent]);upd()};
+cb('all').onclick=()=>{Object.keys(vis).forEach(s=>vis[s]=true);subsDiv.querySelectorAll('input').forEach(x=>x.checked=true);upd()};
+cb('fast').checked=false;upd();
+const tot=man.parts.reduce((a,p)=>a+p.cost,0);cb('tot').innerHTML=`${man.n} instances<br>${man.mass} kg (vehicle, no rider)<br>~${Math.round(tot)} EUR parts (estimate)`;
+// views
+const V={iso:[-3.2,1.9,3.4],side:[-0.35,0.5,4.2],top:[-0.35,5,0.01],front:[4,0.6,0],bottom:[-1.2,-4,0.8]};
+function view(k){cam.position.set(...V[k]);ctl.target.set(-0.35,0.5,0);ctl.update()}
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>view(b.dataset.v));cb('reset').onclick=()=>{ex.value=0;explode(0);view('iso')};view(new URLSearchParams(location.search).get('v')||'iso');
+// pick
+const ray=new THREE.Raycaster(),m2=new THREE.Vector2();let sel=null;
+function pick(e){m2.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(m2,cam);
+ const h=ray.intersectObjects(objs.filter(o=>nodeOf(o).visible&&o.material.opacity>0.5),false);return h.length?h[0].object:null}
+R.domElement.addEventListener('click',e=>{const o=pick(e);if(sel)sel.material.emissive.setHex(0);sel=o;if(!o){cb('info')&&0;document.getElementById('info').textContent='Click a part.';return}
+ o.material.emissive.setHex(0x335577);const p=o.userData.p;
+ document.getElementById('info').innerHTML=`<b>${p.no}</b> ${p.name}<br><small>${p.label} · ${p.sub}</small><br>Material: ${p.material||'-'}<br>Stock: ${p.stock||'-'}<br>Method: ${p.method}<br>Supplier: ${p.supplier||'-'}<br>Mass: ${p.mass} kg · Cost: ~${p.cost} EUR (est.)${p.status?`<br><b style="color:#fc6">${p.status}</b>`:''}`});
+const tip=cb('tip');R.domElement.addEventListener('mousemove',e=>{const o=pick(e);if(o){tip.style.display='block';tip.style.left=e.clientX+12+'px';tip.style.top=e.clientY+12+'px';tip.textContent=o.userData.p.no+' '+o.userData.p.name}else tip.style.display='none'});
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
+let yaw=0,pitch=-0.05,fov=70,speed=0,steer=0,hd=0;const keys={};const vx=new THREE.Vector3();
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape')setPov(false);if(e.key===' ')e.preventDefault()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function setPov(on){pov=on;rider.visible=!on&&cb('prid').checked;S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;view('iso')}cam.updateProjectionMatrix()}
+cb('pov').onclick=()=>setPov(!pov);
+let drag=false,lx=0,ly=0;R.domElement.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY});addEventListener('pointerup',()=>drag=false);
+addEventListener('pointermove',e=>{if(pov&&drag){yaw-=(e.clientX-lx)*0.004;pitch=Math.max(-1.2,Math.min(1.2,pitch-(e.clientY-ly)*0.004));lx=e.clientX;ly=e.clientY}});
+R.domElement.addEventListener('wheel',e=>{if(pov){fov=Math.max(30,Math.min(100,fov+e.deltaY*0.03));cam.fov=fov;cam.updateProjectionMatrix()}});
+let last=performance.now();if(location.search.includes('pov'))setPov(true);if(location.search.includes('go')){keys['w']=true;keys['a']=true}
+function drive(dt){if(keys['w']||keys['arrowup'])speed+=3*dt;if(keys['s']||keys['arrowdown'])speed-=3*dt;if(keys[' '])speed-=Math.sign(speed)*Math.min(Math.abs(speed),6*dt);
+ speed*=1-0.15*dt;speed=Math.max(-2,Math.min(7,speed));const tgt=((keys['a']||keys['arrowleft'])?1:0)-((keys['d']||keys['arrowright'])?1:0);steer+=(tgt*0.55-steer)*Math.min(1,6*dt);
+ // bicycle model about rear axle (x=-wb), heading hd; vehicle forward = +x in model, left = -z in three coords
+ const wb=man.wb;hd+=speed/wb*Math.tan(steer)*dt;
+ // position of model origin so that rear axle moves: track rear axle point P
+ if(drive.px===undefined){drive.px=-wb;drive.pz=0}drive.px=drive.px+speed*Math.cos(hd)*dt;drive.pz=drive.pz-speed*Math.sin(hd)*dt;
+ veh.rotation.y=hd;const rx=-wb;veh.position.set(drive.px-(rx*Math.cos(hd)-0),0,drive.pz-(-rx*Math.sin(hd)));
+ cam.rotation.set(0,0,0);cam.rotation.order='YXZ';cam.rotation.y=yaw-Math.PI/2;cam.rotation.x=pitch}
+(function loop(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000);last=now;if(pov)drive(dt);requestAnimationFrame(loop);if(playing){let v=+ex.value+dir*0.004;if(v>=1){v=1;dir=-1}if(v<=0){v=0;dir=1}ex.value=v;explode(v)}if(!pov)ctl.update();R.render(S,cam);if(location.search.includes('dbg')&&pov){const w=new THREE.Vector3(),d=new THREE.Vector3();cam.getWorldPosition(w);cam.getWorldDirection(d);document.title=JSON.stringify([w.toArray().map(x=>+x.toFixed(2)),d.toArray().map(x=>+x.toFixed(2)),man.eye])}})();
+</script></body></html>
