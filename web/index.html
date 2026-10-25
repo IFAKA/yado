@@ -20,7 +20,7 @@ button:hover{background:#4a5266}small{color:#999}.sw{display:inline-block;width:
 <label><input type="checkbox" id="cab"> show cables</label>
 <label><input type="checkbox" id="wire"> wireframe</label>
 <label><input type="checkbox" id="prid" checked> show person (172 cm)</label>
-<button id="enter">Leave the vehicle</button><br><small>Opens the lid, then the person climbs out or in over the nose. Not in drive mode.</small>
+<button id="enter">Leave the vehicle</button><br><small>The person lifts the lid by hand, climbs out or in over the nose, and pulls the lid shut from the seat. Not in drive mode.</small>
 <h3>Subassemblies</h3><div id="subs"></div>
 <button id="iso">Isolate selected sub</button><button id="all">Show all</button>
 <h3>Totals</h3><div id="tot"></div>
@@ -76,7 +76,7 @@ objs.forEach(o=>{const p=o.userData.p,n=nodeOf(o);n.userData.home=n.position.clo
 function explode(t){objs.forEach(o=>{const n=nodeOf(o);n.position.copy(n.userData.home).addScaledVector(n.userData.ex,t)});lidApply()}
 const ex=document.getElementById('ex');ex.oninput=()=>explode(+ex.value);
 // ---- lid (the "door"): hinged at its rear edge, opens before anyone gets in or out; gas struts stretch to follow.
-const LID={th:0,MAX:1.15,piv:new THREE.Vector3(-0.345,1.263,0)};
+const LID={th:0,MAX:1.0,piv:new THREE.Vector3(-0.345,1.263,0)};
 const lidNodes=objs.filter(o=>['TR-613','TR-622'].includes(o.userData.p.no)).map(nodeOf);
 const lidStruts=objs.filter(o=>o.userData.p.no==='TR-623').map(o=>{const c=new THREE.Vector3(...o.userData.p.c),pc=new THREE.Vector3(-0.1,1.21,c.z);return{n:nodeOf(o),pc,pb0:c.clone().multiplyScalar(2).sub(pc)}});
 function relNode(n){if(!n.matrixAutoUpdate){n.matrixAutoUpdate=true;n.updateMatrix()}}
@@ -91,26 +91,37 @@ function lidApply(){if(LID.th<=0){lidNodes.forEach(relNode);lidStruts.forEach(s=
 const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 const rimH=[[0.66,0.97,0.3],[0.66,0.97,-0.3]],grpH=[jr.hand[1].toArray(),jr.hand[-1].toArray()];
 const A0=jr.ankle[1].toArray(),B0=jr.ankle[-1].toArray();
+const PI=Math.PI,Bz=[0.3,-0.3];
+const lidPt=(x,y,z,th)=>new THREE.Vector3(x,y,z).sub(LID.piv).applyAxisAngle(new THREE.Vector3(0,0,1),th).add(LID.piv).toArray();
+const edgeAt=(th,z)=>lidPt(0.64,0.89,z,th);   // front edge of the lid: the person pulls here
+const gripAt=(th,z)=>lidPt(-0.017,1.14,z*0.7,th);   // handle on the lid underside, 0.35 m from the hinge
+const eh=th=>Bz.map(z=>edgeAt(th,z)),gh=th=>Bz.map(z=>gripAt(th,z)),M=LID.MAX;
 const KEYS=[
- {h:[1.9,.912,0],psi:Math.PI,phi:0,fa:[1.9,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH},
- {h:[1.6,.912,0],psi:Math.PI,phi:0,fa:[1.35,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH},
- {h:[1.35,.912,0],psi:Math.PI,phi:0,fa:[1.35,.07,.09],fb:[1.1,.07,-.09],hw:0,ht:rimH},
- {h:[1.1,.91,0],psi:Math.PI,phi:-.05,fa:[0.95,.07,.09],fb:[1.1,.07,-.09],hw:.5,ht:rimH},
- {h:[1.0,.95,0],psi:Math.PI,phi:-.1,fa:[0.68,1.0,.09],fb:[1.1,.07,-.09],hw:1,ht:rimH},
- {h:[.9,.92,0],psi:Math.PI,phi:-.15,fa:[0.45,.22,.09],fb:[1.0,.07,-.09],hw:1,ht:rimH},
- {h:[.8,.98,0],psi:Math.PI,phi:-.1,fa:[0.45,.22,.09],fb:[0.68,1.0,-.09],hw:1,ht:rimH},
- {h:[.55,1.0,0],psi:Math.PI,phi:0,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH},
- {h:[.5,1.0,0],psi:0,phi:0,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH},
- {h:[.25,.8,0],psi:0,phi:.1,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH},
- {h:[0,.52,0],psi:0,phi:.3,fa:A0,fb:B0,hw:1,ht:grpH},
- {h:jr.hip.toArray(),psi:0,phi:rd.rec,fa:A0,fb:B0,hw:1,ht:grpH}];
-const NK=KEYS.length,SPD=1.1;
+ {h:[1.9,.912,0],psi:PI,phi:0,fa:[1.9,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH,lid:0},
+ {h:[1.6,.912,0],psi:PI,phi:0,fa:[1.35,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH,lid:0},
+ {h:[1.35,.912,0],psi:PI,phi:0,fa:[1.35,.07,.09],fb:[1.1,.07,-.09],hw:0,ht:rimH,lid:0},
+ {h:[1.0,.912,0],psi:PI,phi:-.1,fa:[.95,.07,.09],fb:[1.1,.07,-.09],hw:1,ht:eh(0),lid:0},          // hands on the closed lid edge
+ {h:[.98,.912,0],psi:PI,phi:0,fa:[.95,.07,.09],fb:[1.1,.07,-.09],hw:1,ht:eh(M*.5),lid:M*.5},       // lifts it
+ {h:[.95,.912,0],psi:PI,phi:.05,fa:[.95,.07,.09],fb:[1.1,.07,-.09],hw:1,ht:eh(M),lid:M},           // fully open, struts hold it
+ {h:[1.0,.95,0],psi:PI,phi:-.1,fa:[0.68,1.0,.09],fb:[1.1,.07,-.09],hw:1,ht:rimH,lid:M},
+ {h:[.9,.92,0],psi:PI,phi:-.15,fa:[0.45,.22,.09],fb:[1.0,.07,-.09],hw:1,ht:rimH,lid:M},
+ {h:[.8,.98,0],psi:PI,phi:-.1,fa:[0.45,.22,.09],fb:[0.68,1.0,-.09],hw:1,ht:rimH,lid:M},
+ {h:[.55,1.0,0],psi:PI,phi:0,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH,lid:M},
+ {h:[.5,1.0,0],psi:0,phi:0,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH,lid:M},
+ {h:[.25,.8,0],psi:0,phi:.1,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH,lid:M},
+ {h:[0,.52,0],psi:0,phi:.3,fa:A0,fb:B0,hw:1,ht:grpH,lid:M},
+ {h:jr.hip.toArray(),psi:0,phi:rd.rec,fa:A0,fb:B0,hw:1,ht:grpH,lid:M},
+ {h:jr.hip.toArray(),psi:0,phi:.1,fa:A0,fb:B0,hw:1,ht:gh(M),lid:M},                                  // reaches up to the lid handle
+ {h:jr.hip.toArray(),psi:0,phi:.1,fa:A0,fb:B0,hw:1,ht:gh(M*.5),lid:M*.5},                            // pulls it down
+ {h:jr.hip.toArray(),psi:0,phi:.1,fa:A0,fb:B0,hw:1,ht:gh(0),lid:0},                                  // closed
+ {h:jr.hip.toArray(),psi:0,phi:rd.rec,fa:A0,fb:B0,hw:1,ht:grpH,lid:0}];
+const NK=KEYS.length,SPD=1.4;
 function ik(a,tg,l1,l2,pole){const d=tg.clone().sub(a),D=Math.max(0.05,Math.min(d.length(),(l1+l2)*0.999)),u=d.normalize();
  const al=(l1*l1-l2*l2+D*D)/(2*D),hh=Math.sqrt(Math.max(0,l1*l1-al*al)),pp=pole.clone().addScaledVector(u,-pole.dot(u));pp.lengthSq()<1e-6?pp.set(0,1,0):pp.normalize();
  return[a.clone().addScaledVector(u,al).addScaledVector(pp,hh),a.clone().addScaledVector(u,D)]}
 function place(m,a,b){const d=b.clone().sub(a),L=d.length();m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(YA,d.divideScalar(L));m.scale.y=L/m.userData.L0}
 function poseAt(u){const i=Math.min(Math.floor(u),NK-2),f=u-i,w=f*f*(3-2*f),A=KEYS[i],B=KEYS[i+1],L=(a,b)=>a+(b-a)*w,Lv=(a,b)=>a.map((x,k)=>L(x,b[k]));
- const hip=V3(...Lv(A.h,B.h)),psi=L(A.psi,B.psi),phi=L(A.phi,B.phi),fa=V3(...Lv(A.fa,B.fa)),fb=V3(...Lv(A.fb,B.fb)),hw=L(A.hw,B.hw);
+ const hip=V3(...Lv(A.h,B.h)),psi=L(A.psi,B.psi),phi=L(A.phi,B.phi),fa=V3(...Lv(A.fa,B.fa)),fb=V3(...Lv(A.fb,B.fb)),hw=L(A.hw,B.hw);LID.th=L(A.lid,B.lid);
  const fw=V3(Math.cos(psi),0,-Math.sin(psi)),lat=V3(Math.sin(psi),0,Math.cos(psi)),up=V3(0,Math.cos(phi),0).addScaledVector(fw,-Math.sin(phi));
  const sho=hip.clone().addScaledVector(up,0.30*Hh),neck=hip.clone().addScaledVector(up,0.34*Hh),head=hip.clone().addScaledVector(up,0.415*Hh).addScaledVector(fw,0.03),tor=rider.userData.torso;
  place(tor[0],hip,sho);place(tor[1],sho,neck);tor[2].position.copy(head);
@@ -123,12 +134,10 @@ const ENT={u:NK-1,dir:0,shown:true},entBtn=document.getElementById('enter'),FIXU
 function entLabel(){entBtn.textContent=ENT.dir?'Working...':(ENT.u>0?'Leave the vehicle':'Enter the vehicle')}
 entBtn.onclick=()=>{if(pov||ENT.dir)return;ENT.dir=ENT.u>0?-1:1;entLabel()};
 function entReset(){ENT.u=NK-1;ENT.dir=0;LID.th=0;lidApply();seatRestore();ENT.shown=true;entLabel()}
-if(FIXU!==null){ENT.u=+FIXU;LID.th=LID.MAX;setTimeout(()=>{lidApply()},0)}
-function personTick(dt){const goal=(ENT.dir||FIXU!==null)?LID.MAX:0;let ch=false;
- if(LID.th!==goal){const st=1.2*dt;LID.th=Math.abs(goal-LID.th)<=st?goal:LID.th+Math.sign(goal-LID.th)*st;ch=true}
- if(ENT.dir&&LID.th>=LID.MAX){ENT.u=Math.max(0,Math.min(NK-1,ENT.u+ENT.dir*SPD*dt));if(ENT.u<=0||ENT.u>=NK-1){ENT.dir=0;entLabel()}}
- if(ch)lidApply();
- if(ENT.u<NK-1){poseAt(ENT.u);ENT.shown=false}else if(!ENT.shown){seatRestore();ENT.shown=true}}
+if(FIXU!==null)ENT.u=+FIXU;
+function personTick(dt){
+ if(ENT.dir){ENT.u=Math.max(0,Math.min(NK-1,ENT.u+ENT.dir*SPD*dt));if(ENT.u<=0||ENT.u>=NK-1){ENT.dir=0;entLabel()}}
+ if(ENT.u<NK-1){poseAt(ENT.u);lidApply();ENT.shown=false}else if(!ENT.shown){seatRestore();LID.th=0;lidApply();ENT.shown=true}}
 
 let playing=false,dir=1;document.getElementById('play').onclick=()=>playing=!playing;
 // subs UI
