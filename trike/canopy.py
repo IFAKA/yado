@@ -123,12 +123,13 @@ def build(reg, K, P):
         pb = (pr["B"][0] - 10, s * (y - 40), pr["B"][1] + 30)
         pc = (-100.0, s * (y - 40), 1210.0)
         buy(reg, "TR-623", "Gas strut 100 N, 250 mm (lid)", SUB, cyl(pb, pc, 5.0), material="steel", stock="gas spring 250 mm, 100 N", cost=7.0, mass=0.15, label=f"GS{i}", notes="force and ball-stud sizing TO CONFIRM")
-    # lid pull handle: bar across the underside, 0.35 m from the hinge, so the seated rider can pull the lid shut (arm reach from the seat is ~0.75 m)
-    xh = -17.0; zl = 1250.0 - (xh + 350.0) / (NOSE + 350.0) * 370.0; zh = zl - 22.0
-    buy(reg, "TR-640", "Lid pull handle (alu bar 20 mm, 2 brackets)", SUB, cyl((xh, -210.0, zh), (xh, 210.0, zh), 10.0), material="6061", stock="alu bar 20 mm", cost=5.0, mass=0.12, label="LH", notes="grip position vs seated reach TO CONFIRM")
-    for yy in (-210.0, 210.0):
-        buy(reg, "TR-641", "Lid handle bracket (alu strip 20x3)", SUB, cyl((xh, yy, zh), (xh, yy, zl + 4.0), 3.0), material="6061", stock="alu strip 20x3", cost=1.0, mass=0.02, label=f"LB{int(yy)}")
-        rivet(reg, SUB, (xh, yy, zl + 6.0), (0, 0, -1), 5)
+    # lid pull grips: two short bars under the lid near each side, 0.15 m ahead of the hinge, off the rider's line of sight; seated reach ~0.5 m
+    xh = -200.0; zl = 1250.0 - (xh + 350.0) / (NOSE + 350.0) * 370.0; zh = zl - 22.0
+    for yy in (-270.0, 270.0):
+        buy(reg, "TR-640", "Lid pull grip (alu bar 20 mm, 80 long)", SUB, cyl((xh - 40.0, yy, zh), (xh + 40.0, yy, zh), 10.0), material="6061", stock="alu bar 20 mm", cost=2.5, mass=0.06, label=f"LH{int(yy)}", notes="grip position vs seated reach TO CONFIRM")
+        for dx in (-40.0, 40.0):
+            buy(reg, "TR-641", "Lid grip bracket (alu strip 20x3)", SUB, cyl((xh + dx, yy, zh), (xh + dx, yy, zl + 4.0), 3.0), material="6061", stock="alu strip 20x3", cost=0.5, mass=0.01, label=f"LB{int(yy)}{int(dx)}")
+            rivet(reg, SUB, (xh + dx, yy, zl + 6.0), (0, 0, -1), 5)
     # ---- belly pan: floor, lower skirts, tail wall, nose lower. Front wheels poke out through openings |x|<215.
     ZF = 140.0; zt = ZF + 12.0; xw = 225.0; xt = TAIL + 10.0; xn = NOSE - 10.0; yf = 338.0
     for s in (1, -1):

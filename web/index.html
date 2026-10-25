@@ -94,7 +94,7 @@ const A0=jr.ankle[1].toArray(),B0=jr.ankle[-1].toArray();
 const PI=Math.PI,Bz=[0.3,-0.3];
 const lidPt=(x,y,z,th)=>new THREE.Vector3(x,y,z).sub(LID.piv).applyAxisAngle(new THREE.Vector3(0,0,1),th).add(LID.piv).toArray();
 const edgeAt=(th,z)=>lidPt(0.64,0.89,z,th);   // front edge of the lid: the person pulls here
-const gripAt=(th,z)=>lidPt(-0.017,1.10,z*0.7,th);   // handle on the lid underside, 0.35 m from the hinge
+const gripAt=(th,z)=>lidPt(-0.20,1.171,z*0.9,th);   // grip under the lid, 0.15 m ahead of the hinge
 const eh=th=>Bz.map(z=>edgeAt(th,z)),gh=th=>Bz.map(z=>gripAt(th,z)),M=LID.MAX;
 const KEYS=[
  {h:[1.9,.912,0],psi:PI,phi:0,fa:[1.9,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH,lid:0},
