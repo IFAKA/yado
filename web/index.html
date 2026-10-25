@@ -111,7 +111,7 @@ const tip=cb('tip');R.domElement.addEventListener('mousemove',e=>{const o=pick(e
 addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
 let yaw=0,pitch=-0.05,fov=70,speed=0,steer=0,hd=0;const keys={};const vx=new THREE.Vector3();
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape')setPov(false);if(e.key===' ')e.preventDefault()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-function setPov(on){pov=on;rider.visible=on||cb('prid').checked;grid.visible=!on;person.visible=!on&&cb('pstd').checked;gnd.visible=on;(rider.userData.torso||[]).forEach(m=>m.visible=!on);S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){resetDrive();cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;hud.style.display='none';resetDrive();animReset();ext=0;camBtn.textContent='Camera: rider eyes (C)';veh.rotation.order='XYZ';view('iso')}cam.updateProjectionMatrix()}
+function setPov(on){pov=on;rider.visible=on||cb('prid').checked;grid.visible=!on;person.visible=!on&&cb('pstd').checked;gnd.visible=on;(rider.userData.torso||[]).forEach(m=>m.visible=!on);S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){resetDrive();cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;hud.style.display='none';panel.style.display='none';panel.dataset.init='';resetDrive();animReset();ext=0;camBtn.textContent='Camera: rider eyes (C)';veh.rotation.order='XYZ';view('iso')}cam.updateProjectionMatrix()}
 cb('pov').onclick=()=>setPov(!pov);
 const gnd=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshStandardMaterial({color:0x6f7f62,roughness:1}));gnd.rotation.x=-Math.PI/2;gnd.position.y=-0.004;gnd.visible=false;S.add(gnd);
 let ext=0;const camBtn=document.createElement('button');camBtn.textContent='Camera: rider eyes (C)';cb('pov').after(camBtn);
@@ -172,57 +172,101 @@ function animate(dt,dl,dr){
   const K=new THREE.Vector3(kx,ky,l.off*0.8),Ac=new THREE.Vector3(H.x+ux*d,H.y+uy*d,l.off),T=P.clone();T.x+=0.09;
   setLimb(l.m[0],H,K);l.m[0].visible=!(pov&&!ext);setLimb(l.m[1],K,Ac);setLimb(l.m[2],Ac,T)})}
 function animReset(){if(!AN.rig)return;const R=AN.rig;Object.values(R).forEach(v=>{(Array.isArray(v)?v.flat(2):[]).forEach(i=>{if(i&&i.n){i.n.matrixAutoUpdate=true;i.n.updateMatrix()}})});explode(+ex.value)}
-// Real vehicle model. SI units. Estimates (see params.yaml): rider 80 kg, CG 0.55 m behind front axle, 0.45 m high, mu 0.7.
-const PH={m:man.mass+80,L:man.wb,a:0.55*man.wb,h:0.45,mu:0.7,crr:0.010,cda:0.45,rho:1.2,g:9.81,pRider:120,pMotor:250,vCut:25/3.6,fMax:140,brake:5.5};
-PH.b=PH.L-PH.a;PH.Iz=PH.m*0.30*0.30*PH.L;
-const ST={vx:0,vy:0,r:0,x:0,z:0,hd:0,roll:0,ay:0,ax:0,lift:0,P:0,slipF:0,slipR:0};
+// Real vehicle model. SI units. Estimates (see params.yaml): vehicle CG 0.62 m behind front axle at 0.33 m, rider 0.49 m / 0.56 m, mu from surface.
+const EC={slope:0,hw:0,cw:0,cam:0,rider:80,cargo:0,cargoH:0.55,surf:'dry',motor:1,pr:120,brk:0,gust:0,tipT:0,tipped:0,side:1,shake:0};
+const SURF={dry:[0.7,0.010],wet:[0.4,0.010],gravel:[0.45,0.025],grass:[0.35,0.04],snow:[0.25,0.02],ice:[0.12,0.012]};
+const PH={m:0,L:man.wb,a:0,b:0,h:0,Iz:0,mu:0.7,crr:0.01,cda:0.45,cs:1.1,rho:1.2,g:9.81,pRider:120,pMotor:250,vCut:25/3.6,fMax:140,brake:5.5};
+function applyEC(){const mv=man.mass,mr=EC.rider,mc=EC.cargo,m=mv+mr+mc,L=PH.L;PH.m=m;PH.a=(mv*0.62+mr*0.49+mc*0.95)/m*L;PH.b=L-PH.a;PH.h=(mv*0.33+mr*0.56+mc*EC.cargoH)/m;PH.Iz=m*0.27;[PH.mu,PH.crr]=SURF[EC.surf];PH.pRider=EC.pr;PH.pMotor=EC.motor?250:0}
+applyEC();
+const ST={vx:0,vy:0,r:0,x:0,z:0,hd:0,roll:0,ay:0,ayT:0,ax:0,axt:0,lift:0,P:0,slipF:0,slipR:0,lockF:0,lockR:0,spin:0};
 const hud=document.createElement('div');hud.style.cssText='position:fixed;right:12px;bottom:12px;background:#000a;color:#fff;font:13px monospace;padding:8px 10px;border-radius:6px;display:none;white-space:pre;pointer-events:none';document.body.appendChild(hud);
-function resetDrive(){Object.assign(ST,{vx:0,vy:0,r:0,x:-PH.a,z:0,hd:0,roll:0,ay:0,ax:0,lift:0,P:0});steer=0}
+function resetDrive(){Object.assign(ST,{vx:0,vy:0,r:0,x:-PH.a,z:0,hd:0,roll:0,ay:0,ayT:0,ax:0,axt:0,lift:0,P:0,lockF:0,lockR:0,spin:0});EC.tipT=0;EC.tipped=0;EC.gust=0;steer=0}
 resetDrive();
-function tyre(alpha,Fz,fx){const C=12*Fz,Fm=Math.max(1,PH.mu*Fz),k=Math.min(0.95,Math.abs(fx)/Fm);const Fy=Fm*Math.sqrt(1-k*k);return -Fy*Math.tanh(C*alpha/Fy)}
+// ---- test conditions panel (T = show/hide, R = reset trike)
+const panel=document.createElement('div');panel.style.cssText='position:fixed;right:12px;top:70px;width:270px;max-height:calc(100vh - 230px);overflow:auto;background:#000b;color:#fff;font:12px sans-serif;padding:8px 10px;border-radius:6px;display:none';document.body.appendChild(panel);
+{const h=(t)=>{const d=document.createElement('div');d.innerHTML=t;panel.appendChild(d);return d};h('<b style="color:#8f8">TEST CONDITIONS</b> <small>(T hides, R resets)</small>');
+ const labels={};const sl=(txt,key,min,max,step,unit)=>{const d=h(`<div>${txt}: <span></span> ${unit}</div>`),sp=d.querySelector('span'),i=document.createElement('input');i.type='range';i.min=min;i.max=max;i.step=step;i.value=EC[key];i.style.width='100%';i.oninput=()=>{EC[key]=+i.value;sp.textContent=i.value;applyEC()};i.onchange=()=>i.blur();sp.textContent=i.value;d.appendChild(i);labels[key]=[i,sp]};
+ const sel=(txt,key,opts,fn)=>{const d=h(`<div>${txt} </div>`),s=document.createElement('select');opts.forEach((o,k)=>{const e=document.createElement('option');e.value=Array.isArray(o)?o[0]:o;e.textContent=Array.isArray(o)?o[1]:o;s.appendChild(e)});s.value=EC[key];s.onchange=()=>{EC[key]=isNaN(+s.value)?s.value:+s.value;applyEC();s.blur()};d.appendChild(s);labels[key]=[s,{}]};
+ sl('Road slope (+ uphill)','slope',-25,25,1,'%');sl('Headwind (+ in face)','hw',-10,12,1,'m/s');sl('Crosswind (+ from right)','cw',-14,14,1,'m/s');sl('Side slope (+ down to right)','cam',-12,12,1,'deg');
+ sel('Surface','surf',['dry','wet','gravel','grass','snow','ice']);sel('Brakes','brk',[[0,'work'],[1,'front lost'],[2,'rear lost'],[3,'both lost']]);
+ sl('Rider mass','rider',40,150,5,'kg');sl('Cargo mass','cargo',0,40,5,'kg');sl('Cargo height','cargoH',0.2,1.2,0.05,'m');sl('Rider power','pr',0,400,10,'W');
+ const cbx=h('<label><input type="checkbox" checked> motor assist on</label>').querySelector('input');cbx.onchange=()=>{EC.motor=cbx.checked?1:0;applyEC();cbx.blur()};
+ const set=(o)=>{Object.assign(EC,o);for(const k in labels){const [i,sp]=labels[k];i.value=EC[k];if(sp.textContent!==undefined)sp.textContent=EC[k]}cbx.checked=!!EC.motor;applyEC()};
+ const DEF={slope:0,hw:0,cw:0,cam:0,rider:80,cargo:0,cargoH:0.55,surf:'dry',motor:1,pr:120,brk:0};
+ const btn=(t,fn)=>{const b=document.createElement('button');b.textContent=t;b.style.cssText='margin:2px;font-size:11px';b.onclick=()=>{fn();b.blur()};panel.appendChild(b)};
+ const launch=k=>{ST.vx=k/3.6;ST.vy=0;ST.r=0};
+ h('<b>Events</b>');btn('Gust 10 m/s',()=>{EC.gust=2.5});btn('Pothole L',()=>{ST.vy-=0.25;ST.r-=0.5;EC.shake=1});btn('Pothole R',()=>{ST.vy+=0.25;ST.r+=0.5;EC.shake=1});btn('Launch 10',()=>launch(10));btn('Launch 25',()=>launch(25));btn('Launch 35',()=>launch(35));btn('Reset trike',()=>{resetDrive()});btn('Defaults',()=>set(DEF));
+ h('<b>Scenarios</b>');
+ btn('Wet emergency stop',()=>{set({...DEF,surf:'wet'});resetDrive();launch(25)});
+ btn('Downhill 15%, brakes lost front',()=>{set({...DEF,slope:-15,brk:1,motor:0});resetDrive();launch(15)});
+ btn('Fast corner (dry)',()=>{set(DEF);resetDrive();launch(25)});
+ btn('Crosswind 10 m/s at 25 km/h',()=>{set({...DEF,cw:10});resetDrive();launch(25)});
+ btn('30 kg cargo up high',()=>{set({...DEF,cargo:30,cargoH:1.0});resetDrive();launch(20)});
+ btn('Ice',()=>{set({...DEF,surf:'ice'});resetDrive();launch(10)});
+ btn('Side slope 8 deg, grass',()=>{set({...DEF,cam:8,surf:'grass'});resetDrive();launch(8)});
+ btn('Uphill 15%, 150 kg rider',()=>{set({...DEF,slope:15,rider:150})});
+ btn('Battery dead, flat',()=>{set({...DEF,motor:0})});
+ btn('Gravel braking',()=>{set({...DEF,surf:'gravel'});resetDrive();launch(25)});}
+addEventListener('keydown',e=>{if(!pov)return;const k=e.key.toLowerCase();if(k==='t')panel.style.display=panel.style.display==='none'?'block':'none';if(k==='r')resetDrive()});
+function tyre(alpha,Fz,fx){const C=12*Fz,Fm=Math.max(1,PH.mu*Fz),k=Math.min(1,Math.abs(fx)/Fm);const Fy=Fm*Math.sqrt(Math.max(1e-3,1-k*k));return -Fy*Math.tanh(C*alpha/Fy)}
 function drive(dt){
  const up=keys['w']||keys['arrowup'],brk=keys['s']||keys['arrowdown'],hard=keys[' '];
  const tgt=((keys['a']||keys['arrowleft'])?1:0)-((keys['d']||keys['arrowright'])?1:0);
- // handlebar: hands move it at a limited rate; centres when released
- const rate=(tgt?1.2:1.8)*dt,goal=tgt*0.55;steer+=Math.max(-rate,Math.min(rate,goal-steer));
+ if(panel.style.display==='none'&&!panel.dataset.init){panel.dataset.init=1;panel.style.display='block'}
+ const rate=(tgt?1.2:1.8)*dt,goal=tgt*0.55;if(!EC.tipped)steer+=Math.max(-rate,Math.min(rate,goal-steer));
+ EC.gust=Math.max(0,EC.gust-dt);EC.shake=Math.max(0,EC.shake-2*dt);
+ const th=Math.atan(EC.slope/100),sth=Math.sin(th),cth=Math.cos(th),ph=EC.cam*Math.PI/180;
+ const cwe=EC.cw+(EC.gust>0?10*Math.sin(Math.PI*EC.gust/2.5):0);
  const n=Math.ceil(dt/0.004),h=dt/n,{m,L,a,b,Iz,g}=PH;
  for(let i=0;i<n;i++){
   const v=Math.max(ST.vx,0);
-  // pedal + motor (assist fades out to zero at 25 km/h), force limited by the drive
-  let P=0;if(up){P=PH.pRider+PH.pMotor*Math.max(0,Math.min(1,(PH.vCut+0.0-v)/0.55))}ST.P=P;
-  const Fdrv=up?Math.min(PH.fMax,P/Math.max(v,0.8)):0;
-  const Fres=PH.crr*m*g+0.5*PH.rho*PH.cda*v*v;
-  const dec=hard?PH.brake:(brk?PH.brake*0.45:0);const Fbrk=v>0.02?dec*m:0;
-  const Fx=Fdrv-Fbrk-Fres*Math.sign(ST.vx||1)*(v>0.02?1:0);
-  const axp=Fx/m;
-  // static weight + longitudinal transfer. Front is 2 wheels, rear is 1.
-  const Fzf=Math.max(30,m*(g*b-axp*PH.h)/L),Fzr=Math.max(30,m*g-Fzf);
-  const bf=Fbrk*0.65,vxe=Math.max(ST.vx,1.5);
+  if(EC.tipped){ST.vx=Math.max(0,ST.vx-6*h);ST.vy*=Math.exp(-4*h);ST.r*=Math.exp(-4*h);ST.P=0}
+  else{
+  let P=0;if(up){P=PH.pRider+PH.pMotor*Math.max(0,Math.min(1,(PH.vCut-v)/0.55))}ST.P=P;
+  let Fdrv=up?Math.min(PH.fMax,P/Math.max(v,0.8)):0;
+  const vair=v+EC.hw,Fres=v>0.02?PH.crr*m*g*cth+0.5*PH.rho*PH.cda*vair*Math.abs(vair):0;
+  const dec=hard?PH.brake:(brk?PH.brake*0.45:0),Fcmd=v>0.02?dec*m:0;
+  // axle loads from the tyre forces of the previous step (weight shifts forward when braking, back when accelerating or climbing)
+  const Fzf=Math.max(30,m*(g*(b*cth-PH.h*sth)-ST.axt*PH.h)/L),Fzr=Math.max(30,m*g*cth-Fzf);
+  // drive is on the single rear wheel: it can spin on a slippery surface
+  const dmax=PH.mu*Fzr;ST.spin=Fdrv>dmax?1:0;Fdrv=Math.min(Fdrv,dmax);
+  const fcap=PH.mu*Fzf,rcap=PH.mu*Fzr;
+  const Ff=(EC.brk&1)?0:Math.min(Fcmd*0.65,fcap),Fr=(EC.brk&2)?0:Math.min(Fcmd*0.35,rcap);
+  ST.lockF=Ff>=fcap*0.98&&Ff>1?1:0;ST.lockR=Fr>=rcap*0.98&&Fr>1?1:0;
+  const Fbrk=Ff+Fr,Fxt=Fdrv-Fbrk-Fres;ST.axt=Fxt/m;
+  const axp=ST.axt-g*sth;
+  const Fw=0.5*PH.rho*PH.cs*cwe*Math.abs(cwe);
+  const vxe=Math.max(ST.vx,1.5);
   const af=Math.atan2(ST.vy+a*ST.r,vxe)-steer,ar=Math.atan2(ST.vy-b*ST.r,vxe);
-  const Fyf=tyre(af,Fzf,bf),Fyr=tyre(ar,Fzr,Fbrk*0.35);
+  const Fyf=tyre(af,Fzf,Ff),Fyr=tyre(ar,Fzr,Fdrv-Fr>0?Fdrv:Fr);
   ST.slipF=af;ST.slipR=ar;
-  const ay=(Fyf*Math.cos(steer)+Fyr)/m;
-  ST.vy+=(ay-ST.vx*ST.r)*h;
-  ST.r+=((a*Fyf*Math.cos(steer)-b*Fyr)/Iz)*h;
+  const ayT=(Fyf*Math.cos(steer)+Fyr)/m,ay=ayT+Fw/m-g*Math.sin(ph);
+  ST.ayT=ayT;ST.vy+=(ay-ST.vx*ST.r)*h;
+  ST.r+=((a*Fyf*Math.cos(steer)-b*Fyr+0.1*Fw)/Iz)*h;
   ST.vx+=(axp-Fyf*Math.sin(steer)/m+ST.vy*ST.r)*h;if(ST.vx<0)ST.vx=0;
-  ST.ax=axp;ST.ay=ay+0;
+  ST.ax=axp;ST.ay=ay;
   // low speed: blend toward the kinematic (no-slip) solution so it does not wobble
-  if(ST.vx<2){const w=Math.max(0,1-ST.vx/2),rk=ST.vx*Math.tan(steer)/L;ST.r+=(rk-ST.r)*Math.min(1,w*12*h);ST.vy+=(b*rk-ST.vy)*Math.min(1,w*12*h)}
+  if(ST.vx<2){const w=Math.max(0,1-ST.vx/2),rk=ST.vx*Math.tan(steer)/L;ST.r+=(rk-ST.r)*Math.min(1,w*12*h);ST.vy+=(b*rk-ST.vy)*Math.min(1,w*12*h)}}
   ST.hd+=ST.r*h;
   const c=Math.cos(ST.hd),s=Math.sin(ST.hd);
   ST.x+=(ST.vx*c-ST.vy*s)*h;ST.z+=(-ST.vx*s-ST.vy*c)*h;
  }
- // side load on the wheels: tipping needs ay*h > g*track/2 (inner front wheel unloads first)
- const lat=ST.vx*ST.r;ST.lift=Math.abs(lat)*PH.h/(g*man.track/2);
- const tilt=ST.lift>0.85?Math.min(0.25,(ST.lift-0.85)*1.2):0;ST.roll+=((-Math.sign(lat)*tilt)-ST.roll)*Math.min(1,6*dt);
+ // tipping: the tyres' side force times CG height against half the track (inner wheel unloads, then lifts, then it goes over)
+ const ratio=Math.abs(ST.ayT)*PH.h/(g*Math.cos(ph)*man.track/2);ST.lift=ratio;
+ if(!EC.tipped){if(ratio>1)EC.tipT+=dt*((ratio-1)*10+0.3);else EC.tipT=Math.max(0,EC.tipT-2*dt);if(EC.tipT>1){EC.tipped=1;EC.side=Math.sign(ST.ayT)||1}else EC.side=Math.sign(ST.ayT)||EC.side}
+ const tgtRoll=EC.tipped?EC.side*1.5:EC.side*(0.15*Math.min(1,EC.tipT)+(ratio>0.85?Math.min(0.1,(ratio-0.85)*0.5):0));
+ if(EC.tipped)ST.roll+=Math.max(-2*dt,Math.min(2*dt,tgtRoll-ST.roll));else ST.roll+=(tgtRoll-ST.roll)*Math.min(1,6*dt);
  const c=Math.cos(ST.hd),s=Math.sin(ST.hd);
- veh.rotation.order='YXZ';veh.rotation.set(ST.roll,ST.hd,0);veh.position.set(ST.x+a*c,0,ST.z-a*s);const tn=Math.tan(steer),dl=Math.atan(tn/(1-tn*(man.track/2)/L)),dr=Math.atan(tn/(1+tn*(man.track/2)/L));animate(dt,dl,dr);gnd.position.x=ST.x;gnd.position.z=ST.z;
- if(!ext){cam.rotation.set(0,0,0);cam.rotation.order='YXZ';cam.rotation.y=yaw-Math.PI/2;cam.rotation.x=pitch}
+ // roll about the outer wheel's contact line
+ const pz=Math.sign(ST.roll||1)*man.track/2,oy=pz*Math.sin(ST.roll),oz=pz*(1-Math.cos(ST.roll));
+ veh.rotation.order='YXZ';veh.rotation.set(ST.roll,ST.hd,0);veh.position.set(ST.x+a*c+oz*s,oy,ST.z-a*s+oz*c);const tn=Math.tan(steer),dl=Math.atan(tn/(1-tn*(man.track/2)/L)),dr=Math.atan(tn/(1+tn*(man.track/2)/L));animate(dt,dl,dr);gnd.position.x=ST.x;gnd.position.z=ST.z;
+ if(!ext){cam.rotation.set(0,0,0);cam.rotation.order='YXZ';cam.rotation.y=yaw-Math.PI/2;cam.rotation.x=pitch+(Math.random()-0.5)*0.05*EC.shake}
  else{const f=new THREE.Vector3(c,0,-s),tp=new THREE.Vector3(ST.x+a*c,0.55,ST.z-a*s);
   if(ext===1){const want=tp.clone().addScaledVector(f,-3.4);want.y=1.5;cam.position.lerp(want,Math.min(1,3*dt))}
-  else{if(!AN.bs||AN.bs.distanceTo(tp)>28||AN.bs.clone().sub(tp).dot(f)<-3){AN.bs=tp.clone().addScaledVector(f,20);AN.bs.x+=Math.cos(ST.hd)*0+Math.sin(ST.hd)*4.5;AN.bs.z+=Math.cos(ST.hd)*4.5;AN.bs.y=1.6}cam.position.copy(AN.bs)}
+  else{if(!AN.bs||AN.bs.distanceTo(tp)>28||AN.bs.clone().sub(tp).dot(f)<-3){AN.bs=tp.clone().addScaledVector(f,20);AN.bs.x+=Math.sin(ST.hd)*4.5;AN.bs.z+=Math.cos(ST.hd)*4.5;AN.bs.y=1.6}cam.position.copy(AN.bs)}
   cam.lookAt(tp)}
- hud.style.display='block';hud.textContent=`speed ${(ST.vx*3.6).toFixed(1)} km/h${ST.vx>PH.vCut-0.05?'  (assist cut-off 25)':''}\nmotor+rider ${ST.P.toFixed(0)} W\nsteer ${(steer*57.3).toFixed(0)} deg\nside g ${(ST.ay/g).toFixed(2)}  yaw ${(ST.r*57.3).toFixed(0)} deg/s\nslip front ${(ST.slipF*57.3).toFixed(1)} rear ${(ST.slipR*57.3).toFixed(1)} deg\n`+(ST.lift>1?'INNER WHEEL LIFTING':ST.lift>0.7?'inner wheel light':'wheels grounded')+(Math.abs(ST.slipF)>0.12||Math.abs(ST.slipR)>0.12?'\nSLIDING':'');
+ const wa=Math.abs(ST.slipF)>0.12||Math.abs(ST.slipR)>0.12;
+ hud.style.display='block';hud.textContent=`speed ${(ST.vx*3.6).toFixed(1)} km/h   ${m.toFixed(0)} kg, CG ${(PH.h*100).toFixed(0)} cm high, ${(PH.b/L*100).toFixed(0)}% on front\nmotor+rider ${ST.P.toFixed(0)} W   slope ${EC.slope}%  mu ${PH.mu}\nsteer ${(steer*57.3).toFixed(0)} deg\nside g ${(ST.ay/g).toFixed(2)}  yaw ${(ST.r*57.3).toFixed(0)} deg/s  decel ${(-ST.ax/g).toFixed(2)} g\nslip front ${(ST.slipF*57.3).toFixed(1)} rear ${(ST.slipR*57.3).toFixed(1)} deg\ntip ratio ${ST.lift.toFixed(2)} (1 = inner wheel off)\n`+(EC.tipped?'*** TIPPED OVER (R to reset) ***':ST.lift>1?'INNER WHEEL LIFTING':ST.lift>0.7?'inner wheel light':'wheels grounded')+(wa?'\nSLIDING':'')+(ST.lockF?'\nFRONT WHEELS LOCKED':'')+(ST.lockR?'\nREAR WHEEL LOCKED':'')+(ST.spin?'\nREAR WHEEL SPINNING':'');
 }
 (function loop(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000);last=now;if(pov)drive(dt);requestAnimationFrame(loop);if(playing){let v=+ex.value+dir*0.004;if(v>=1){v=1;dir=-1}if(v<=0){v=0;dir=1}ex.value=v;explode(v)}if(!pov)ctl.update();R.render(S,cam);if(location.search.includes('dbg')&&pov){const w=new THREE.Vector3(),d=new THREE.Vector3();cam.getWorldPosition(w);cam.getWorldDirection(d);document.title=JSON.stringify([w.toArray().map(x=>+x.toFixed(2)),d.toArray().map(x=>+x.toFixed(2)),man.eye])}})();
 </script></body></html>
