@@ -1,0 +1,87 @@
+# Tadpole EPAC trike - parameter table. Edit values, re-run the build scripts.
+# status: SPEC = given by you | EST = my estimate | DERIVED = computed | TO CONFIRM = bought-part value, verify with datasheet
+# All lengths mm, angles deg, mass kg unless stated.
+layout:
+  wheelbase:            {value: 1000, status: EST, note: "was 1300 (spec start value). Shortened for compactness + CG nearer front axle (stability)"}
+  front_track_cc:       {value: 750,  status: EST, note: "was 700. 750 + 47 mm tyre = 797 <= 800 overall; more tipping stability"}
+  max_overall_width:    {value: 800,  status: SPEC}
+  max_overall_length:   {value: 2200, status: SPEC}
+  seat_pan_height:      {value: 280,  status: SPEC, note: "seat surface above ground at hip point"}
+  bb_height:            {value: 550,  status: SPEC}
+  hip_joint_above_pan:  {value: 90,   status: EST,  note: "hip joint above seat surface, incl. cushion"}
+  hip_x_from_front_axle: {value: -520, status: EST,  note: "nominal seat reference; moved forward from -700 for stability (CG nearer front axle)"}
+  seat_slide_pm:        {value: 60,   status: SPEC}
+  backrest_recline_min: {value: 30,   status: SPEC, note: "from vertical; 30 = spec value"}
+  backrest_recline_max: {value: 45,   status: EST,  note: "adjustable strut; needed for head clearance of tall riders (see ergo report)"}
+  backrest_recline_set: {value: 40,   status: EST,  note: "nominal setting used in checks"}
+  boom_margin:          {value: 20,   status: EST,  note: "extra boom travel each end"}
+riders:
+  range_stature_min:    {value: 1550, status: EST, note: "you will replace with your own height"}
+  range_stature_max:    {value: 1900, status: EST}
+  user_stature:         {value: 1720, status: SPEC, note: "builder, given by user"}
+  clothing_shoulder_allow: {value: 40, status: EST}
+  roof_gap_above_head:  {value: 40,   status: EST, note: "helmet-free gap"}
+  knee_flexion_bottom:  {value: 28,   status: EST, note: "knee bend at full leg extension"}
+  anthropometry: "Drillis-Contini style proportions as fractions of stature (thigh .245, shank .246, bideltoid .285, hip breadth .215, trunk .50). ESTIMATES, not measured data."
+drive:
+  crank_length:         {value: 170,  status: TO CONFIRM, note: "BBS01B ships 170; 152/160 availability TO CONFIRM for short riders"}
+  motor_model:          {value: "Bafang BBS01B 250W 36V", status: TO CONFIRM}
+  motor_rated_power_W:  {value: 250,  status: TO CONFIRM, note: "continuous rated per datasheet/plate - verify; this is the legal figure"}
+  battery_nominal_V:    {value: 36,   status: TO CONFIRM}
+  controller_current_limit_A: {value: 7, status: SPEC, note: "250 W / 36 V = 6.9 A. NB at 42 V full charge 7 A = 294 W input; see Open issues"}
+  speed_limit_kmh:      {value: 25,   status: SPEC, note: "set with programming cable; assist fades before"}
+  bb_shell_width:       {value: [68, 73], status: TO CONFIRM}
+  motor_mass_kg:        {value: 3.6,  status: TO CONFIRM}
+  sensor:               {value: "cadence (PAS) - no torque sensor", status: SPEC}
+  throttle_port:        {value: "unplugged and capped", status: SPEC}
+wheels:
+  front_rim_iso:        {value: 305,  status: SPEC}
+  rear_rim_iso:         {value: 406,  status: SPEC}
+  front_tyre_od:        {value: 400,  status: TO CONFIRM, note: "16x1.75 (47-305)"}
+  rear_tyre_od:         {value: 400,  status: TO CONFIRM, note: "16x1.75 (47-305)"}
+  tyre_width:           {value: 47,   status: TO CONFIRM}
+  rear_hub_OLD:         {value: 135,  status: SPEC}
+  cassette_speeds:      {value: "9-11", status: SPEC}
+  rotor_dia:            {value: 160,  status: TO CONFIRM, note: "mechanical disc, front x2 + rear, + parking brake lever"}
+  front_kingpin_dia:    {value: 20,   status: SPEC}
+battery:
+  case:                 {value: "downtube, 36V 10-14Ah", status: SPEC}
+  case_envelope_LxWxH:  {value: [380, 90, 80], status: TO CONFIRM}
+  mass_kg:              {value: 2.8,  status: TO CONFIRM}
+canopy:
+  head_clearance_min:   {value: 1250, status: SPEC, note: "see ergo report: only met for tall rider at recline >= ~40 deg"}
+  shoulder_clear_min:   {value: 600,  status: SPEC}
+  shoulder_clear_design: {value: 640,  status: EST}
+  nose_clearance_ahead_of_foot: {value: 70, status: EST, note: "gap between toe at full crank reach and canopy nose; compact build for short rides"}
+  toe_beyond_pedal_axle: {value: 90, status: EST}
+  hoop_tube_dia:        {value: 20,   status: SPEC}
+frame:
+  tube_main_a:          {value: "25x1.5 round 4130", status: SPEC}
+  tube_main_b:          {value: "30x2 round 4130",   status: SPEC}
+  yield_4130_normalised_MPa: {value: 435, status: TO CONFIRM, note: "supplier cert needed; welded HAZ lower"}
+  yield_S355_MPa:       {value: 355, status: SPEC}
+loads_checks:
+  rider_mass_fea:       {value: 150, status: SPEC}
+  vertical_g:           {value: 3,   status: SPEC}
+  rider_mass_stability: {value: 100, status: SPEC}
+  tipping_angle_min:    {value: 35,  status: SPEC}
+front:
+  kingpin_inclination:  {value: 12, status: EST, note: "deg, top inboard"}
+  caster:               {value: 8,  status: EST, note: "deg, top rearward"}
+  scrub_radius:         {value: 20, status: EST, note: "ground intercept inboard of tyre centreline"}
+  headtube_z0:          {value: 235, status: EST, note: "headtube lower end height on kingpin axis"}
+  headtube_z1:          {value: 345, status: EST}
+  frame_plane_z:        {value: 255, status: EST, note: "keel / cross tube centre height"}
+rear:
+  swingarm_pivot_dx_from_x2: {value: -40, status: EST}
+  shock_eye_to_eye:     {value: 165, status: TO CONFIRM, note: "165x38 trunnion/eyelet air or coil shock, 8 mm bush"}
+  shock_stroke:         {value: 38,  status: TO CONFIRM}
+boom:
+  stroke:               {value: 100, status: EST}
+  min_engagement:       {value: 75,  status: EST}
+  sleeve_od:            {value: 30,  status: SPEC}
+  boom_od:              {value: 25,  status: SPEC}
+chain:
+  chainring_teeth:      {value: 42,  status: TO CONFIRM}
+  chainline_y:          {value: -48, status: TO CONFIRM, note: "right side; BBS01B chain line ~ 47-48 mm"}
+  top_run_z:            {value: 335, status: EST}
