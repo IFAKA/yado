@@ -73,6 +73,7 @@ front:
   headtube_z1:          {value: 345, status: EST}
   frame_plane_z:        {value: 255, status: EST, note: "keel / cross tube centre height"}
 rear:
+  rigid:                {value: true, status: SPEC, note: "no suspension: shock replaced by a fixed strut, pivot clamped. Set false for the sprung variant"}
   swingarm_pivot_dx_from_x2: {value: -40, status: EST}
   shock_eye_to_eye:     {value: 165, status: TO CONFIRM, note: "165x38 trunnion/eyelet air or coil shock, 8 mm bush"}
   shock_stroke:         {value: 38,  status: TO CONFIRM}
@@ -82,6 +83,8 @@ boom:
   sleeve_od:            {value: 30,  status: SPEC}
   boom_od:              {value: 25,  status: SPEC}
 chain:
-  chainring_teeth:      {value: 42,  status: TO CONFIRM}
+  single_speed:         {value: true, status: SPEC, note: "no derailleur / cassette; motor covers low gears. Set false for the 9-speed variant"}
+  cog_teeth:            {value: 16, status: EST, note: "single rear cog (single_speed only); cadence at 25 km/h = see checks"}
+  chainring_teeth:      {value: 50,  status: TO CONFIRM}
   chainline_y:          {value: -48, status: TO CONFIRM, note: "right side; BBS01B chain line ~ 47-48 mm"}
   top_run_z:            {value: 335, status: EST}

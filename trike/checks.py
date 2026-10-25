@@ -170,8 +170,8 @@ def clearances(reg, K):
 def rear_travel(reg, K, P):
     """Swing-arm rotates about the pivot; find wheel travel at which the tyre hits the shock cross tube / chain / seat rail, and shock stroke used."""
     piv = np.array(K["pivot"]); ra = np.array(K["rear_axle"]); lo = np.array(K["shock_lo"]) if "shock_lo" in K else None
-    shock = [i for i in reg.insts if i.part.no == "TR-315"][0]
-    stroke = P["rear"]["shock_stroke"]["value"]
+    shock = [i for i in reg.insts if i.part.no in ("TR-315", "TR-316")][0]
+    stroke = 0.0 if P["rear"]["rigid"]["value"] else P["rear"]["shock_stroke"]["value"]
     return dict(arm_length_mm=float(np.linalg.norm(ra[[0, 2]] - piv[[0, 2]])), shock_stroke_mm=stroke)
 
 def ground_clearance(reg, K, P, rider_kg=100.0, sag_frac=0.25, front_tyre_defl=4.0, hump=100.0):
@@ -181,7 +181,7 @@ def ground_clearance(reg, K, P, rider_kg=100.0, sag_frac=0.25, front_tyre_defl=4
     z0 = float(fl.min.Z); xn = float(fl.max.X)
     ra = np.array(K["rear_axle"]); piv = np.array(K["pivot"]); lo = np.array(K["shock_lo"])
     ratio = np.linalg.norm(ra[[0, 2]] - piv[[0, 2]]) / np.linalg.norm(lo[[0, 2]] - piv[[0, 2]])
-    travel = P["rear"]["shock_stroke"]["value"] * ratio
+    travel = (0.0 if P["rear"]["rigid"]["value"] else P["rear"]["shock_stroke"]["value"]) * ratio
     wb = -float(ra[0]); sag = sag_frac * travel
     def floor_at(x, drop_rear):                      # floor underside height at x (x<=0 behind the front axle, pitch about front contact)
         return z0 - front_tyre_defl - drop_rear * min(max(-x, 0.0), wb) / wb

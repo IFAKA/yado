@@ -79,28 +79,31 @@ def build(reg, K, P):
         buy(reg, "TR-408", "Chain idler wheel 12T, Ø8 bore (bush)", SUB, wh, material="PA / alu", stock="12T idler, 7 mm wide", cost=7.0, mass=0.03, color=(0.8, 0.5, 0.1), label=f"ID{j+1}", group=f"idl{j}")
         reg_turned(reg, "TR-409", "Idler spacer Ø14/Ø8.4 x 24.5", SUB, [(7, 0), (7, 24.5)], (cx, CHAIN_Y + 3.5 - 24.5 + 0.0 + 24.5 * 0 - 0, cz), (0, 1, 0), material="S355", stock="Ø14 bar", cost=0.8, bore=8.4, label=f"IS{j+1}").meta["group"] = f"idl{j}"
         bolt(reg, SUB, (cx, CHAIN_Y - 3.5, cz), (0, 1, 0), 8, 36.5, targets=(), nut=True, washers=(True, True), label=f"IB{j+1}")
-    # ---- rear derailleur (simplified body, parallelogram, cage, 2 jockey wheels)
-    rm = np.array(K["rd_mount"]); Rcog = rad_of(21)
-    gx, gz = ax - 10.0, az - Rcog - 22.4 - 8.0                 # guide pulley
-    tx, tz = ax - 32.0, gz - 70.0                              # tensioner pulley
-    body = Pos(rm[0], -84.0, rm[2]) * Box(30, 12, 30) + cyl((rm[0], -90.0, rm[2]), (rm[0], -73.5, rm[2]), 5.0)
-    l1 = cyl((rm[0], -84.0, rm[2] + 8), (gx, -57.0, gz + 14), 5.0); l2 = cyl((rm[0], -84.0, rm[2] - 8), (gx, -57.0, gz - 2), 5.0)
-    buy(reg, "TR-410", "Rear derailleur 9-speed, medium cage (body + linkage)", SUB, body + l1 + l2, material="alu / steel", stock="9s, 36T capacity", cost=28.0, mass=0.26, color=(0.25, 0.25, 0.3), label="RD", group="rd")
-    for nm, o in (("outer", -54.0), ("inner", -45.0)):
-        pl = plate_on(reg, "xz", "TR-411", "Derailleur cage plate", SUB, stadium((gx, gz), 14, (tx, tz), 14), [(gx, gz, 5.2), (tx, tz, 5.2)], 3, o, material="steel", group="rd", label=f"CG{nm[0]}")
-        pl.part.kind = "bought"; pl.part.fab = False; pl.part.method = "buy"; pl.part.supplier = "bike shop / online"; pl.part.mass = 0.04
-    for j, (cx, cz) in enumerate(((gx, gz), (tx, tz))):
-        buy(reg, "TR-412", "Jockey wheel 11T", SUB, frame_at((cx, -51.0, cz), (0, 1, 0)).location * (Cylinder(22.4 + 1.5, 6) - Cylinder(2.6, 8)) if False else
-            frame_at((cx, -48.0, cz), (0, 1, 0)).location * (Cylinder(22.4 + 1.0, 6) - Cylinder(2.6, 8)), material="PA / alu", stock="11T, 5 mm bore", cost=6.0, mass=0.02, color=(0.2, 0.2, 0.2), label=f"JW{j+1}", group="rd")
-        bolt(reg, SUB, (cx, -54.0, cz), (0, 1, 0), 5, 12.0, targets=(), nut=True, washers=(False, False), label=f"JB{j+1}")
+    SS = P["chain"]["single_speed"]["value"]; Rcog = rad_of(P["chain"]["cog_teeth"]["value"] if SS else 21)
+    gx = gz = tx = tz = None
+    if not SS:
+        # ---- rear derailleur (simplified body, parallelogram, cage, 2 jockey wheels)
+        rm = np.array(K["rd_mount"])
+        gx, gz = ax - 10.0, az - Rcog - 22.4 - 8.0                 # guide pulley
+        tx, tz = ax - 32.0, gz - 70.0                              # tensioner pulley
+        body = Pos(rm[0], -84.0, rm[2]) * Box(30, 12, 30) + cyl((rm[0], -90.0, rm[2]), (rm[0], -73.5, rm[2]), 5.0)
+        l1 = cyl((rm[0], -84.0, rm[2] + 8), (gx, -57.0, gz + 14), 5.0); l2 = cyl((rm[0], -84.0, rm[2] - 8), (gx, -57.0, gz - 2), 5.0)
+        buy(reg, "TR-410", "Rear derailleur 9-speed, medium cage (body + linkage)", SUB, body + l1 + l2, material="alu / steel", stock="9s, 36T capacity", cost=28.0, mass=0.26, color=(0.25, 0.25, 0.3), label="RD", group="rd")
+        for nm, o in (("outer", -54.0), ("inner", -45.0)):
+            pl = plate_on(reg, "xz", "TR-411", "Derailleur cage plate", SUB, stadium((gx, gz), 14, (tx, tz), 14), [(gx, gz, 5.2), (tx, tz, 5.2)], 3, o, material="steel", group="rd", label=f"CG{nm[0]}")
+            pl.part.kind = "bought"; pl.part.fab = False; pl.part.method = "buy"; pl.part.supplier = "bike shop / online"; pl.part.mass = 0.04
+        for j, (cx, cz) in enumerate(((gx, gz), (tx, tz))):
+            buy(reg, "TR-412", "Jockey wheel 11T", SUB, frame_at((cx, -51.0, cz), (0, 1, 0)).location * (Cylinder(22.4 + 1.5, 6) - Cylinder(2.6, 8)) if False else
+                frame_at((cx, -48.0, cz), (0, 1, 0)).location * (Cylinder(22.4 + 1.0, 6) - Cylinder(2.6, 8)), material="PA / alu", stock="11T, 5 mm bore", cost=6.0, mass=0.02, color=(0.2, 0.2, 0.2), label=f"JW{j+1}", group="rd")
+            bolt(reg, SUB, (cx, -54.0, cz), (0, 1, 0), 5, 12.0, targets=(), nut=True, washers=(False, False), label=f"JB{j+1}")
     # ---- chain
-    pul = [(bbx, bbz, Rr, 1), (idl[0][0], idl[0][1], ri, 1), (ax, az, Rcog, 1), (gx, gz, 22.4, -1), (tx, tz, 22.4, 1), (idl[1][0], idl[1][1], ri, 1)]
+    pul = [(bbx, bbz, Rr, 1), (idl[0][0], idl[0][1], ri, 1), (ax, az, Rcog, 1)] + ([] if SS else [(gx, gz, 22.4, -1), (tx, tz, 22.4, 1)]) + [(idl[1][0], idl[1][1], ri, 1)]
     segs, arcs, L = chain_path(pul)
     links = int(math.ceil(L / 12.7 / 2) * 2)
     boxes = []
     for (a, b) in segs: boxes += sweep_poly_boxes([tuple(a), tuple(b)], 6.6, 8.5, CHAIN_Y)
     for pts in arcs: boxes += sweep_poly_boxes([tuple(p) for p in pts], 6.6, 8.5, CHAIN_Y)
-    buy(reg, "TR-413", f"Chain 9-speed 1/2x11/128, {links} links (2 chains + connector)", SUB, Compound(boxes), material="steel", stock=f"{links} links", cost=26.0, mass=round(links * 0.0023, 3),
+    buy(reg, "TR-413", f"Chain {'1-speed' if SS else '9-speed'} 1/2x11/128, {links} links (2 chains + connector)", SUB, Compound(boxes), material="steel", stock=f"{links} links", cost=26.0, mass=round(links * 0.0023, 3),
         color=(0.35, 0.33, 0.3), label="CHN", status="TO CONFIRM", notes="link count from the modelled path at nominal boom position; re-measure on the real bike")
-    K["chain"] = dict(links=links, length=L, pul=pul, segs=[(tuple(a), tuple(b)) for a, b in segs], rd=((gx, gz), (tx, tz)))
+    K["chain"] = dict(links=links, length=L, pul=pul, segs=[(tuple(a), tuple(b)) for a, b in segs], rd=None if SS else ((gx, gz), (tx, tz)))
     return dict(links=links)
