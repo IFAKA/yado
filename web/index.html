@@ -19,8 +19,8 @@ button:hover{background:#4a5266}small{color:#999}.sw{display:inline-block;width:
 <label><input type="checkbox" id="fast"> show fasteners</label>
 <label><input type="checkbox" id="cab"> show cables</label>
 <label><input type="checkbox" id="wire"> wireframe</label>
-<label><input type="checkbox" id="prid" checked> show rider (172 cm) inside</label>
-<label><input type="checkbox" id="pstd" checked> show standing person (172 cm) beside</label>
+<label><input type="checkbox" id="prid" checked> show person (172 cm)</label>
+<button id="enter">Leave the vehicle</button><br><small>Opens the lid, then the person climbs out or in over the nose. Not in drive mode.</small>
 <h3>Subassemblies</h3><div id="subs"></div>
 <button id="iso">Isolate selected sub</button><button id="all">Show all</button>
 <h3>Totals</h3><div id="tot"></div>
@@ -40,18 +40,18 @@ S.add(new THREE.HemisphereLight(0xffffff,0x444455,1.1));const dl=new THREE.Direc
 const dl2=new THREE.DirectionalLight(0xffffff,0.6);dl2.position.set(-3,2,-3);S.add(dl2);
 const grid=new THREE.GridHelper(4,40,0x555a66,0x333843);grid.position.set(-0.4,0,0);S.add(grid);
 const veh=new THREE.Group();S.add(veh);const gl=await new GLTFLoader().loadAsync('model.glb');veh.add(gl.scene);
-const posts=new THREE.Group();S.add(posts);{const g=new THREE.CylinderGeometry(0.06,0.06,1.2,10),m=new THREE.MeshStandardMaterial({color:0xe0a030});
+const posts=new THREE.Group();posts.visible=false;S.add(posts);{const g=new THREE.CylinderGeometry(0.06,0.06,1.2,10),m=new THREE.MeshStandardMaterial({color:0xe0a030});
  for(let i=-40;i<=40;i++)for(const sd of[-3,3]){const p=new THREE.Mesh(g,m);p.position.set(i*4,0.6,sd+(Math.sin(i*1.7)*0.8));posts.add(p)}
  const g2=new THREE.BoxGeometry(1.2,0.01,0.1),m2_=new THREE.MeshBasicMaterial({color:0x777f8f});for(let i=-100;i<=100;i++){const d=new THREE.Mesh(g2,m2_);d.position.set(i*2,0.006,0);d.scale.set(1,1,1);posts.add(d)}}
 
 // manikin: capsules between joints, sizes from stature H (Drillis-Contini style ratios, estimates)
-function limb(a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a),L=d.length();const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,Math.max(L-2*r,0.001),4,10),mat);m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m}
+function limb(a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a),L=d.length();const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,Math.max(L-2*r,0.001),4,10),mat);m.userData.L0=L;m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m}
 function manikin(H,j,col){const g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:col,roughness:0.8}),V=(x,y,z)=>new THREE.Vector3(x,y,z);
- const add=(a,b,r)=>{const m=limb(a,b,r*H,mat);g.add(m);return m};
+ const add=(a,b,r)=>{const m=limb(a,b,r*H,mat);m.userData.seat=[a.clone(),b.clone()];g.add(m);return m};
  const hip=j.hip,sh=j.sho,neck=j.neck,head=j.head;
- const tor=[add(hip,sh,0.065),add(sh,neck,0.03)];const hd=new THREE.Mesh(new THREE.SphereGeometry(0.065*H,16,12),mat);hd.position.copy(head);hd.userData.head=true;g.add(hd);tor.push(hd);g.userData.torso=tor;
+ const tor=[add(hip,sh,0.065),add(sh,neck,0.03)];const hd=new THREE.Mesh(new THREE.SphereGeometry(0.065*H,16,12),mat);hd.position.copy(head);hd.userData.head=true;hd.userData.seatPos=head.clone();g.add(hd);tor.push(hd);g.userData.torso=tor;
  for(const s of[-1,1]){const o=V(0,0,s*0.10*H/1.72*1.0);const hp=hip.clone().add(V(0,0,s*0.05)),sp=sh.clone().add(V(0,0,s*0.20*H/1.72*0.9));
-  g.userData['leg'+s]=[add(hp,j.knee[s],0.045),add(j.knee[s],j.ankle[s],0.036),add(j.ankle[s],j.toe[s],0.028)];add(sp,j.elb[s],0.030);add(j.elb[s],j.hand[s],0.024)}
+  g.userData['leg'+s]=[add(hp,j.knee[s],0.045),add(j.knee[s],j.ankle[s],0.036),add(j.ankle[s],j.toe[s],0.028)];g.userData['arm'+s]=[add(sp,j.elb[s],0.030),add(j.elb[s],j.hand[s],0.024)]}
  return g}
 const Hh=man.rider.H,rd=man.rider,T3=a=>new THREE.Vector3(...a);
 const hip=T3(rd.hip),up=new THREE.Vector3(Math.sin(rd.rec)*-1,Math.cos(rd.rec),0);
@@ -60,11 +60,7 @@ const jr={hip,sho,neck,head,knee:{},ankle:{},toe:{},elb:{},hand:{}};
 [-1,1].forEach((s,i)=>{const L=rd.legs[1-i],k=T3(L.knee),a=T3(L.ankle),pd=T3(L.ped);const off=s*0.09;k.z+=off*0.8;a.z+=off;pd.z+=off;jr.knee[s]=k;jr.ankle[s]=a;jr.toe[s]=pd.clone().add(new THREE.Vector3(0.09,0,0));
  const gp=T3(rd.grips[s>0?1:0]);const shp=sho.clone();shp.z+=s*0.20*Hh/1.72*0.9;jr.hand[s]=gp;const mid=shp.clone().add(gp).multiplyScalar(0.5);mid.z+=s*0.04;mid.y-=0.08;jr.elb[s]=mid});
 const rider=manikin(Hh,jr,0xe8a33d);rider.traverse(o=>{if(o.isMesh)o.userData.skip=true});veh.add(rider);
-// standing person next to the trike, facing forward (+x), feet on the ground
-const h=Hh,Z=1.0,X=-0.3,st={hip:new THREE.Vector3(X,0.53*h,Z),sho:new THREE.Vector3(X,0.82*h,Z),neck:new THREE.Vector3(X,0.87*h,Z),head:new THREE.Vector3(X,0.935*h,Z),knee:{},ankle:{},toe:{},elb:{},hand:{}};
-[-1,1].forEach(s=>{st.knee[s]=new THREE.Vector3(X,0.285*h,Z+s*0.09);st.ankle[s]=new THREE.Vector3(X,0.04*h,Z+s*0.09);st.toe[s]=new THREE.Vector3(X+0.17*h/1.72,0.02,Z+s*0.09);st.elb[s]=new THREE.Vector3(X,0.62*h,Z+s*0.21);st.hand[s]=new THREE.Vector3(X,0.43*h,Z+s*0.22)});
-const person=manikin(h,st,0x6fa8dc);S.add(person);
-const $g=id=>document.getElementById(id);$g('prid').onchange=()=>{rider.visible=$g('prid').checked};$g('pstd').onchange=()=>{person.visible=$g('pstd').checked};
+const $g=id=>document.getElementById(id);$g('prid').onchange=()=>{rider.visible=$g('prid').checked};
 const byId={};man.parts.forEach(p=>byId[p.id]=p);
 const objs=[];gl.scene.traverse(o=>{if(o.isMesh){const p=byId[o.name]||byId[o.parent&&o.parent.name];if(!p)return;o.userData.p=p;
  const PAL={'Frame':0xc0504d,'Steering & front axle':0x4f81bd,'Rear swing-arm & wheel':0x9bbb59,'Drivetrain':0xf0a030,'Seat':0x8064a2,'Canopy':0xbfd8e8,'Electrics':0x4bacc6,'Fasteners':0x999999};const c=new THREE.Color(p.kind==='bought'&&/Tyre|Cable|rubber/i.test(p.name+p.material)?0x222222:PAL[p.sub]||0x888888);if(p.kind==='bought'&&p.sub!=='Canopy')c.multiplyScalar(0.8);o.material=new THREE.MeshStandardMaterial({color:c,metalness:0.2,roughness:0.6,side:THREE.DoubleSide,transparent:true});o.userData.base=c;o.userData.node=o.parent&&byId[o.parent.name]?o.parent:o;objs.push(o);}});
@@ -77,8 +73,63 @@ objs.forEach(o=>{const p=o.userData.p,n=nodeOf(o);n.userData.home=n.position.clo
  const sc=new THREE.Vector3(...man.subs[p.sub]);const d=new THREE.Vector3(...DIR[p.sub]).multiplyScalar(AMP);
  const sp=new THREE.Vector3(...p.c).sub(sc).multiplyScalar(SP);n.userData.ex=d.add(sp);
  if(p.sub==="Fasteners"||p.kind==="fastener"){n.userData.ex.multiplyScalar(1.0)}});
-function explode(t){objs.forEach(o=>{const n=nodeOf(o);n.position.copy(n.userData.home).addScaledVector(n.userData.ex,t)})}
+function explode(t){objs.forEach(o=>{const n=nodeOf(o);n.position.copy(n.userData.home).addScaledVector(n.userData.ex,t)});lidApply()}
 const ex=document.getElementById('ex');ex.oninput=()=>explode(+ex.value);
+// ---- lid (the "door"): hinged at its rear edge, opens before anyone gets in or out; gas struts stretch to follow.
+const LID={th:0,MAX:1.15,piv:new THREE.Vector3(-0.345,1.263,0)};
+const lidNodes=objs.filter(o=>['TR-613','TR-622'].includes(o.userData.p.no)).map(nodeOf);
+const lidStruts=objs.filter(o=>o.userData.p.no==='TR-623').map(o=>{const c=new THREE.Vector3(...o.userData.p.c),pc=new THREE.Vector3(-0.1,1.21,c.z);return{n:nodeOf(o),pc,pb0:c.clone().multiplyScalar(2).sub(pc)}});
+function relNode(n){if(!n.matrixAutoUpdate){n.matrixAutoUpdate=true;n.updateMatrix()}}
+function lidApply(){if(LID.th<=0){lidNodes.forEach(relNode);lidStruts.forEach(s=>relNode(s.n));return}
+ const R=rotAbout(ZA,LID.th,LID.piv);lidNodes.forEach(n=>setNode(n,R));
+ lidStruts.forEach(({n,pc,pb0})=>{const pb1=pb0.clone().applyMatrix4(R),d0=pb0.clone().sub(pc),d1=pb1.clone().sub(pc),k=d1.length()/d0.length();
+  const B0=new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(YA,d0.clone().normalize()));
+  const Q=new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(d0.clone().normalize(),d1.clone().normalize()));
+  const M=new THREE.Matrix4().makeTranslation(pc.x,pc.y,pc.z).multiply(Q).multiply(B0).multiply(new THREE.Matrix4().makeScale(1,k,1)).multiply(B0.clone().invert()).multiply(new THREE.Matrix4().makeTranslation(-pc.x,-pc.y,-pc.z));setNode(n,M)})}
+// ---- person: one manikin, seated or standing, with an animated way in over the nose (key poses, 2-bone IK for legs and arms).
+// Key = hip, heading psi (0 = facing +x, PI = facing the trike), trunk lean phi (+ = back), two ankle targets, hand weight (0 hang, 1 on target).
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const rimH=[[0.66,0.97,0.3],[0.66,0.97,-0.3]],grpH=[jr.hand[1].toArray(),jr.hand[-1].toArray()];
+const A0=jr.ankle[1].toArray(),B0=jr.ankle[-1].toArray();
+const KEYS=[
+ {h:[1.9,.912,0],psi:Math.PI,phi:0,fa:[1.9,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH},
+ {h:[1.6,.912,0],psi:Math.PI,phi:0,fa:[1.35,.07,.09],fb:[1.9,.07,-.09],hw:0,ht:rimH},
+ {h:[1.35,.912,0],psi:Math.PI,phi:0,fa:[1.35,.07,.09],fb:[1.1,.07,-.09],hw:0,ht:rimH},
+ {h:[1.1,.91,0],psi:Math.PI,phi:-.05,fa:[0.95,.07,.09],fb:[1.1,.07,-.09],hw:.5,ht:rimH},
+ {h:[1.0,.95,0],psi:Math.PI,phi:-.1,fa:[0.68,1.0,.09],fb:[1.1,.07,-.09],hw:1,ht:rimH},
+ {h:[.9,.92,0],psi:Math.PI,phi:-.15,fa:[0.45,.22,.09],fb:[1.0,.07,-.09],hw:1,ht:rimH},
+ {h:[.8,.98,0],psi:Math.PI,phi:-.1,fa:[0.45,.22,.09],fb:[0.68,1.0,-.09],hw:1,ht:rimH},
+ {h:[.55,1.0,0],psi:Math.PI,phi:0,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH},
+ {h:[.5,1.0,0],psi:0,phi:0,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH},
+ {h:[.25,.8,0],psi:0,phi:.1,fa:[0.45,.22,.09],fb:[0.40,.22,-.09],hw:1,ht:rimH},
+ {h:[0,.52,0],psi:0,phi:.3,fa:A0,fb:B0,hw:1,ht:grpH},
+ {h:jr.hip.toArray(),psi:0,phi:rd.rec,fa:A0,fb:B0,hw:1,ht:grpH}];
+const NK=KEYS.length,SPD=1.1;
+function ik(a,tg,l1,l2,pole){const d=tg.clone().sub(a),D=Math.max(0.05,Math.min(d.length(),(l1+l2)*0.999)),u=d.normalize();
+ const al=(l1*l1-l2*l2+D*D)/(2*D),hh=Math.sqrt(Math.max(0,l1*l1-al*al)),pp=pole.clone().addScaledVector(u,-pole.dot(u));pp.lengthSq()<1e-6?pp.set(0,1,0):pp.normalize();
+ return[a.clone().addScaledVector(u,al).addScaledVector(pp,hh),a.clone().addScaledVector(u,D)]}
+function place(m,a,b){const d=b.clone().sub(a),L=d.length();m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(YA,d.divideScalar(L));m.scale.y=L/m.userData.L0}
+function poseAt(u){const i=Math.min(Math.floor(u),NK-2),f=u-i,w=f*f*(3-2*f),A=KEYS[i],B=KEYS[i+1],L=(a,b)=>a+(b-a)*w,Lv=(a,b)=>a.map((x,k)=>L(x,b[k]));
+ const hip=V3(...Lv(A.h,B.h)),psi=L(A.psi,B.psi),phi=L(A.phi,B.phi),fa=V3(...Lv(A.fa,B.fa)),fb=V3(...Lv(A.fb,B.fb)),hw=L(A.hw,B.hw);
+ const fw=V3(Math.cos(psi),0,-Math.sin(psi)),lat=V3(Math.sin(psi),0,Math.cos(psi)),up=V3(0,Math.cos(phi),0).addScaledVector(fw,-Math.sin(phi));
+ const sho=hip.clone().addScaledVector(up,0.30*Hh),neck=hip.clone().addScaledVector(up,0.34*Hh),head=hip.clone().addScaledVector(up,0.415*Hh).addScaledVector(fw,0.03),tor=rider.userData.torso;
+ place(tor[0],hip,sho);place(tor[1],sho,neck);tor[2].position.copy(head);
+ [1,-1].forEach((s,k)=>{const hp=hip.clone().addScaledVector(lat,s*0.05),[kn,an]=ik(hp,s>0?fa:fb,0.245*Hh,0.246*Hh,fw.clone().addScaledVector(YA,0.5));
+  const toe=an.clone().addScaledVector(fw,0.15);toe.y-=0.05;const lg=rider.userData['leg'+s];place(lg[0],hp,kn);place(lg[1],kn,an);place(lg[2],an,toe);
+  const sp=sho.clone().addScaledVector(lat,s*0.18),hang=sp.clone().add(V3(0,-0.64,0)).addScaledVector(lat,s*0.03),tg=V3(...Lv(A.ht[k],B.ht[k])),hd=hang.multiplyScalar(1-hw).addScaledVector(tg,hw);
+  const [el,hn]=ik(sp,hd,0.186*Hh,0.254*Hh,V3(0,-1,0).addScaledVector(lat,s*0.5).addScaledVector(fw,-0.3));const ar=rider.userData['arm'+s];place(ar[0],sp,el);place(ar[1],el,hn)})}
+function seatRestore(){rider.children.forEach(m=>{if(m.userData.seat){place(m,...m.userData.seat)}else if(m.userData.seatPos)m.position.copy(m.userData.seatPos)})}
+const ENT={u:NK-1,dir:0,shown:true},entBtn=document.getElementById('enter'),FIXU=new URLSearchParams(location.search).get('u');
+function entLabel(){entBtn.textContent=ENT.dir?'Working...':(ENT.u>0?'Leave the vehicle':'Enter the vehicle')}
+entBtn.onclick=()=>{if(pov||ENT.dir)return;ENT.dir=ENT.u>0?-1:1;entLabel()};
+function entReset(){ENT.u=NK-1;ENT.dir=0;LID.th=0;lidApply();seatRestore();ENT.shown=true;entLabel()}
+if(FIXU!==null){ENT.u=+FIXU;LID.th=LID.MAX;setTimeout(()=>{lidApply()},0)}
+function personTick(dt){const goal=(ENT.dir||FIXU!==null)?LID.MAX:0;let ch=false;
+ if(LID.th!==goal){const st=1.2*dt;LID.th=Math.abs(goal-LID.th)<=st?goal:LID.th+Math.sign(goal-LID.th)*st;ch=true}
+ if(ENT.dir&&LID.th>=LID.MAX){ENT.u=Math.max(0,Math.min(NK-1,ENT.u+ENT.dir*SPD*dt));if(ENT.u<=0||ENT.u>=NK-1){ENT.dir=0;entLabel()}}
+ if(ch)lidApply();
+ if(ENT.u<NK-1){poseAt(ENT.u);ENT.shown=false}else if(!ENT.shown){seatRestore();ENT.shown=true}}
+
 let playing=false,dir=1;document.getElementById('play').onclick=()=>playing=!playing;
 // subs UI
 const vis={};const subsDiv=document.getElementById('subs');let selSub=null;
@@ -111,7 +162,7 @@ const tip=cb('tip');R.domElement.addEventListener('mousemove',e=>{const o=pick(e
 addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
 let yaw=0,pitch=-0.05,fov=70,speed=0,steer=0,hd=0;const keys={};const vx=new THREE.Vector3();
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape')setPov(false);if(e.key===' ')e.preventDefault()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-function setPov(on){pov=on;rider.visible=on||cb('prid').checked;grid.visible=!on;person.visible=!on&&cb('pstd').checked;gnd.visible=on;(rider.userData.torso||[]).forEach(m=>m.visible=!on);S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){resetDrive();cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;hud.style.display='none';panel.style.display='none';panel.dataset.init='';resetDrive();animReset();ext=0;camBtn.textContent='Camera: rider eyes (C)';veh.rotation.order='XYZ';view('iso')}cam.updateProjectionMatrix()}
+function setPov(on){pov=on;rider.visible=on||cb('prid').checked;grid.visible=!on;posts.visible=on;if(on)entReset();cb('enter').disabled=on;gnd.visible=on;(rider.userData.torso||[]).forEach(m=>m.visible=!on);S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){resetDrive();cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;hud.style.display='none';panel.style.display='none';panel.dataset.init='';resetDrive();animReset();ext=0;camBtn.textContent='Camera: rider eyes (C)';veh.rotation.order='XYZ';view('iso')}cam.updateProjectionMatrix()}
 cb('pov').onclick=()=>setPov(!pov);
 const gnd=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshStandardMaterial({color:0x6f7f62,roughness:1}));gnd.rotation.x=-Math.PI/2;gnd.position.y=-0.004;gnd.visible=false;S.add(gnd);
 let ext=0;const camBtn=document.createElement('button');camBtn.textContent='Camera: rider eyes (C)';cb('pov').after(camBtn);
@@ -166,7 +217,7 @@ function animate(dt,dl,dr){
  R.pedal.forEach(i=>setNode(i.n,new THREE.Matrix4().multiplyMatrices(Mc,rotAbout(ZA,AN.crank,i.c))));
  R.idl.forEach(i=>setNode(i.n,rotAbout(ZA,-AN.idl,i.c)));R.jock.forEach(i=>setNode(i.n,rotAbout(ZA,-AN.jock,i.c)));
  // legs: pedal on the crank circle, knee from 2-bone IK (knee up)
- AN.legs.forEach(l=>{const ph=l.phi0-AN.crank,P=new THREE.Vector3(BB.x+0.17*Math.cos(ph),BB.y+0.17*Math.sin(ph),l.off),A=P.clone().add(l.aOff);A.z=l.off;
+ if(ENT.u>=NK-1)AN.legs.forEach(l=>{const ph=l.phi0-AN.crank,P=new THREE.Vector3(BB.x+0.17*Math.cos(ph),BB.y+0.17*Math.sin(ph),l.off),A=P.clone().add(l.aOff);A.z=l.off;
   const H=l.hip,dx=A.x-H.x,dy=A.y-H.y,d=Math.min(Math.hypot(dx,dy),(l.t+l.sh)*0.999),ux=dx/Math.hypot(dx,dy),uy=dy/Math.hypot(dx,dy),aa=(l.t*l.t-l.sh*l.sh+d*d)/(2*d),hh=Math.sqrt(Math.max(0,l.t*l.t-aa*aa));
   let kx=H.x+ux*aa-uy*hh,ky=H.y+uy*aa+ux*hh;if(H.y+uy*aa-ux*hh>ky){kx=H.x+ux*aa+uy*hh;ky=H.y+uy*aa-ux*hh}
   const K=new THREE.Vector3(kx,ky,l.off*0.8),Ac=new THREE.Vector3(H.x+ux*d,H.y+uy*d,l.off),T=P.clone();T.x+=0.09;
@@ -268,5 +319,5 @@ function drive(dt){
  const wa=Math.abs(ST.slipF)>0.12||Math.abs(ST.slipR)>0.12;
  hud.style.display='block';hud.textContent=`speed ${(ST.vx*3.6).toFixed(1)} km/h   ${m.toFixed(0)} kg, CG ${(PH.h*100).toFixed(0)} cm high, ${(PH.b/L*100).toFixed(0)}% on front\nmotor+rider ${ST.P.toFixed(0)} W   slope ${EC.slope}%  mu ${PH.mu}\nsteer ${(steer*57.3).toFixed(0)} deg\nside g ${(ST.ay/g).toFixed(2)}  yaw ${(ST.r*57.3).toFixed(0)} deg/s  decel ${(-ST.ax/g).toFixed(2)} g\nslip front ${(ST.slipF*57.3).toFixed(1)} rear ${(ST.slipR*57.3).toFixed(1)} deg\ntip ratio ${ST.lift.toFixed(2)} (1 = inner wheel off)\n`+(EC.tipped?'*** TIPPED OVER (R to reset) ***':ST.lift>1?'INNER WHEEL LIFTING':ST.lift>0.7?'inner wheel light':'wheels grounded')+(wa?'\nSLIDING':'')+(ST.lockF?'\nFRONT WHEELS LOCKED':'')+(ST.lockR?'\nREAR WHEEL LOCKED':'')+(ST.spin?'\nREAR WHEEL SPINNING':'');
 }
-(function loop(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000);last=now;if(pov)drive(dt);requestAnimationFrame(loop);if(playing){let v=+ex.value+dir*0.004;if(v>=1){v=1;dir=-1}if(v<=0){v=0;dir=1}ex.value=v;explode(v)}if(!pov)ctl.update();R.render(S,cam);if(location.search.includes('dbg')&&pov){const w=new THREE.Vector3(),d=new THREE.Vector3();cam.getWorldPosition(w);cam.getWorldDirection(d);document.title=JSON.stringify([w.toArray().map(x=>+x.toFixed(2)),d.toArray().map(x=>+x.toFixed(2)),man.eye])}})();
+(function loop(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000);last=now;personTick(dt);if(pov)drive(dt);requestAnimationFrame(loop);if(playing){let v=+ex.value+dir*0.004;if(v>=1){v=1;dir=-1}if(v<=0){v=0;dir=1}ex.value=v;explode(v)}if(!pov)ctl.update();R.render(S,cam);if(location.search.includes('dbg')&&pov){const w=new THREE.Vector3(),d=new THREE.Vector3();cam.getWorldPosition(w);cam.getWorldDirection(d);document.title=JSON.stringify([w.toArray().map(x=>+x.toFixed(2)),d.toArray().map(x=>+x.toFixed(2)),man.eye])}})();
 </script></body></html>
