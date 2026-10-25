@@ -12,7 +12,7 @@ button:hover{background:#4a5266}small{color:#999}.sw{display:inline-block;width:
 <b style="font-size:15px">Tadpole EPAC trike</b><br><small>One-off build model. Not certified or legal. Estimates, see Open issues.</small>
 <h3>Explode</h3><input id="ex" type="range" min="0" max="1" step="0.005" value="0">
 <button id="play">Play / pause</button><button id="reset">Reset view</button>
-<h3>Drive</h3><button id="pov" style="background:#2f7d4f">POV: drive it</button><br><small>POV: W/S speed, A/D steer, Space brake, drag = look, wheel = zoom, Esc = exit</small>
+<h3>Drive</h3><button id="pov" style="background:#2f7d4f">POV: drive it</button><br><small>POV: W pedal (250 W assist, cuts at 25 km/h), S brake, Space hard brake, A/D steer, drag = look, wheel = zoom, Esc = exit</small>
 <h3>View</h3>
 <button data-v="iso">Iso</button><button data-v="side">Side</button><button data-v="top">Top</button><button data-v="front">Front</button><button data-v="bottom">Bottom</button>
 <label>Canopy opacity <input id="co" type="range" min="0" max="1" step="0.02" value="0.25"></label>
@@ -47,11 +47,11 @@ const posts=new THREE.Group();S.add(posts);{const g=new THREE.CylinderGeometry(0
 // manikin: capsules between joints, sizes from stature H (Drillis-Contini style ratios, estimates)
 function limb(a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a),L=d.length();const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,Math.max(L-2*r,0.001),4,10),mat);m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m}
 function manikin(H,j,col){const g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:col,roughness:0.8}),V=(x,y,z)=>new THREE.Vector3(x,y,z);
- const add=(a,b,r)=>g.add(limb(a,b,r*H,mat));
+ const add=(a,b,r)=>{const m=limb(a,b,r*H,mat);g.add(m);return m};
  const hip=j.hip,sh=j.sho,neck=j.neck,head=j.head;
- add(hip,sh,0.065);add(sh,neck,0.03);const hd=new THREE.Mesh(new THREE.SphereGeometry(0.065*H,16,12),mat);hd.position.copy(head);hd.userData.head=true;g.add(hd);
+ const tor=[add(hip,sh,0.065),add(sh,neck,0.03)];const hd=new THREE.Mesh(new THREE.SphereGeometry(0.065*H,16,12),mat);hd.position.copy(head);hd.userData.head=true;g.add(hd);tor.push(hd);g.userData.torso=tor;
  for(const s of[-1,1]){const o=V(0,0,s*0.10*H/1.72*1.0);const hp=hip.clone().add(V(0,0,s*0.05)),sp=sh.clone().add(V(0,0,s*0.20*H/1.72*0.9));
-  add(hp,j.knee[s],0.045);add(j.knee[s],j.ankle[s],0.036);add(j.ankle[s],j.toe[s],0.028);add(sp,j.elb[s],0.030);add(j.elb[s],j.hand[s],0.024)}
+  g.userData['leg'+s]=[add(hp,j.knee[s],0.045),add(j.knee[s],j.ankle[s],0.036),add(j.ankle[s],j.toe[s],0.028)];add(sp,j.elb[s],0.030);add(j.elb[s],j.hand[s],0.024)}
  return g}
 const Hh=man.rider.H,rd=man.rider,T3=a=>new THREE.Vector3(...a);
 const hip=T3(rd.hip),up=new THREE.Vector3(Math.sin(rd.rec)*-1,Math.cos(rd.rec),0);
@@ -111,19 +111,118 @@ const tip=cb('tip');R.domElement.addEventListener('mousemove',e=>{const o=pick(e
 addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
 let yaw=0,pitch=-0.05,fov=70,speed=0,steer=0,hd=0;const keys={};const vx=new THREE.Vector3();
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape')setPov(false);if(e.key===' ')e.preventDefault()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-function setPov(on){pov=on;rider.visible=!on&&cb('prid').checked;S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;view('iso')}cam.updateProjectionMatrix()}
+function setPov(on){pov=on;rider.visible=on||cb('prid').checked;grid.visible=!on;person.visible=!on&&cb('pstd').checked;gnd.visible=on;(rider.userData.torso||[]).forEach(m=>m.visible=!on);S.background=new THREE.Color(on?0x8fb4d8:0x1b1e24);upd();ctl.enabled=!on;cb('pov').textContent=on?'Exit POV (Esc)':'POV: drive it';if(on){resetDrive();cam.fov=fov;yaw=0;pitch=-0.12;veh.add(cam);cam.position.set(...man.eye);const co=cb('co');if(+co.value>0.15){co.value=0.12;upd()}}else{veh.remove(cam);S.add(cam);cam.fov=40;cam.updateProjectionMatrix();veh.position.set(0,0,0);veh.rotation.set(0,0,0);speed=0;hd=0;hud.style.display='none';resetDrive();animReset();ext=0;camBtn.textContent='Camera: rider eyes (C)';veh.rotation.order='XYZ';view('iso')}cam.updateProjectionMatrix()}
 cb('pov').onclick=()=>setPov(!pov);
+const gnd=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshStandardMaterial({color:0x6f7f62,roughness:1}));gnd.rotation.x=-Math.PI/2;gnd.position.y=-0.004;gnd.visible=false;S.add(gnd);
+let ext=0;const camBtn=document.createElement('button');camBtn.textContent='Camera: rider eyes (C)';cb('pov').after(camBtn);
+function setCam(m){ext=m;AN.bs=null;(rider.userData.torso||[]).forEach(t=>t.visible=!!m);camBtn.textContent=['Camera: rider eyes (C)','Camera: chase behind (C)','Camera: bystander (C)'][m];
+ if(m){veh.remove(cam);S.add(cam);cam.fov=45;cam.position.set(ST.x-4,1.5,ST.z)}else{S.remove(cam);veh.add(cam);cam.position.set(...man.eye);cam.fov=fov}cam.updateProjectionMatrix()}
+camBtn.onclick=()=>{if(pov)setCam((ext+1)%3)};addEventListener('keydown',e=>{if(pov&&e.key.toLowerCase()==='c')setCam((ext+1)%3)});
 let drag=false,lx=0,ly=0;R.domElement.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY});addEventListener('pointerup',()=>drag=false);
 addEventListener('pointermove',e=>{if(pov&&drag){yaw-=(e.clientX-lx)*0.004;pitch=Math.max(-1.2,Math.min(1.2,pitch-(e.clientY-ly)*0.004));lx=e.clientX;ly=e.clientY}});
 R.domElement.addEventListener('wheel',e=>{if(pov){fov=Math.max(30,Math.min(100,fov+e.deltaY*0.03));cam.fov=fov;cam.updateProjectionMatrix()}});
-let last=performance.now();if(location.search.includes('pov'))setPov(true);if(location.search.includes('go')){keys['w']=true;keys['a']=true}
-function drive(dt){if(keys['w']||keys['arrowup'])speed+=3*dt;if(keys['s']||keys['arrowdown'])speed-=3*dt;if(keys[' '])speed-=Math.sign(speed)*Math.min(Math.abs(speed),6*dt);
- speed*=1-0.15*dt;speed=Math.max(-2,Math.min(7,speed));const tgt=((keys['a']||keys['arrowleft'])?1:0)-((keys['d']||keys['arrowright'])?1:0);steer+=(tgt*0.55-steer)*Math.min(1,6*dt);
- // bicycle model about rear axle (x=-wb), heading hd; vehicle forward = +x in model, left = -z in three coords
- const wb=man.wb;hd+=speed/wb*Math.tan(steer)*dt;
- // position of model origin so that rear axle moves: track rear axle point P
- if(drive.px===undefined){drive.px=-wb;drive.pz=0}drive.px=drive.px+speed*Math.cos(hd)*dt;drive.pz=drive.pz-speed*Math.sin(hd)*dt;
- veh.rotation.y=hd;const rx=-wb;veh.position.set(drive.px-(rx*Math.cos(hd)-0),0,drive.pz-(-rx*Math.sin(hd)));
- cam.rotation.set(0,0,0);cam.rotation.order='YXZ';cam.rotation.y=yaw-Math.PI/2;cam.rotation.x=pitch}
+let last=performance.now();if(location.search.includes('pov'))setTimeout(()=>{setPov(true);const m=+new URLSearchParams(location.search).get('cam');if(m)setCam(m)},0);if(location.search.includes('go')){keys['w']=true;keys['a']=true}
+// ---- animation rig: wheels roll at their own ground speed, front wheels steer (Ackermann) about the tilted kingpin,
+// cranks/pedals/chain wheels turn only while pedalling (freewheel), rider legs follow the pedals (2-bone IK).
+const AN={crank:0,fr:[0,0],rr:0,cass:0,jock:0,idl:0,rig:null,legs:null};
+const BB=new THREE.Vector3(0.2491,0.55,0),ZA=new THREE.Vector3(0,0,1),YA=new THREE.Vector3(0,1,0);
+const rotAbout=(ax,ang,P)=>new THREE.Matrix4().makeTranslation(P.x,P.y,P.z).multiply(new THREE.Matrix4().makeRotationAxis(ax,ang)).multiply(new THREE.Matrix4().makeTranslation(-P.x,-P.y,-P.z));
+function setNode(n,M){n.matrixAutoUpdate=false;n.matrix.makeTranslation(n.position.x,n.position.y,n.position.z).multiply(M);n.matrixWorldNeedsUpdate=true}
+function buildRig(){
+ const R={fspin:[[],[]],fsteer:[[],[]],tie:[[],[]],rspin:[],cass:[],bell:[],crank:[],pedal:[],ring:[],idl:[],jock:[],kp:[null,null],arm:[null,null],bend:[null,null]};
+ const fsub=['Steering & front axle','Fasteners','Electrics'];
+ objs.forEach(o=>{const p=o.userData.p,[x,y,z]=p.c,az=Math.abs(z),sd=z<0?0:1,no=p.no,it={n:nodeOf(o),c:new THREE.Vector3(x,y,z)},fs=fsub.includes(p.sub);
+  if(no==='TR-201')R.kp[sd]=it.c;
+  if(fs&&az>0.15&&az<0.42&&x>-0.075&&x<0.08&&!['TR-202','TR-203','TR-241'].includes(no)){(['TR-210','TR-211','TR-212','TR-909','TR-716'].includes(no)?R.fspin:R.fsteer)[sd].push(it);if(no==='TR-240')R.arm[sd]=it.c;return}
+  if(no==='TR-241'){R.tie[sd].push(it);return}
+  if(fs&&az<0.03&&Math.abs(x+0.06)<0.06&&y>0.31&&y<0.36){R.bell.push(it);return}
+  if(fs&&x<=-0.1&&x>-0.2&&az>0.19&&az<0.26&&y>0.31&&y<0.36){R.bell.push(it);if(no==='TR-240')R.bend[sd]=it.c;return}
+  if(Math.abs(x+1)<0.25&&az<0.08&&['TR-310','TR-311','TR-716','TR-212','TR-909'].includes(no))R.rspin.push(it);
+  else if(no==='TR-312')R.cass.push(it);
+  else if(no==='TR-404')R.crank.push(it);else if(no==='TR-405')R.pedal.push(it);
+  else if(no==='TR-406'||no==='TR-407'||(p.sub==='Fasteners'&&Math.hypot(x-BB.x,y-BB.y)<0.09&&z>0.03&&z<0.08))R.ring.push(it);
+  else if(no==='TR-408')R.idl.push(it);else if(no==='TR-412')R.jock.push(it)});
+ return R}
+function buildLegs(){const hp0=T3(rd.hip);return [1,-1].map(s=>{const Lg=rd.legs[s>0?0:1],k=T3(Lg.knee),a=T3(Lg.ankle),pd=T3(Lg.ped),off=s*0.09,hip=hp0.clone();hip.z+=s*0.05;
+ return{s,off,phi0:Math.atan2(pd.y-BB.y,pd.x-BB.x),aOff:a.clone().sub(pd),t:Math.hypot(k.x-hip.x,k.y-hip.y),sh:Math.hypot(a.x-k.x,a.y-k.y),hip,m:rider.userData['leg'+s]}})}
+function setLimb(m,a,b){const d=new THREE.Vector3().subVectors(b,a);m.position.copy(a).addScaledVector(d,0.5);m.quaternion.setFromUnitVectors(YA,d.normalize())}
+function animate(dt,dl,dr){
+ if(!AN.rig){AN.rig=buildRig();AN.legs=buildLegs()}const R=AN.rig,{L,a,b}=PH;
+ // pedalling: freewheel, so cranks only turn while W is held. Gear chosen to keep cadence near 75 rpm.
+ const wr=ST.vx/0.2,cogs=[36,32,28,24,21,18,15,13,11];let cog=36,best=1e9;for(const c of cogs){const rpm=wr*c/42*9.549;if(Math.abs(rpm-75)<best){best=Math.abs(rpm-75);cog=c}}
+ const up=keys['w']||keys['arrowup'],wc=up?Math.max(wr*cog/42,4.2):0;AN.crank+=wc*dt;AN.cass+=wc*42/cog*dt;AN.idl+=wc*3.49*dt;AN.jock+=wc*3.8*dt;
+ // wheel ground speeds from the yaw rate (inner front wheel is slower), projected on each wheel's heading
+ const del=[dl,dr];[0,1].forEach(sd=>{const yw=sd?-man.track/2:man.track/2,vxw=ST.vx-ST.r*yw,vyw=ST.vy+ST.r*a;AN.fr[sd]+=(vxw*Math.cos(del[sd])+vyw*Math.sin(del[sd]))/0.2*dt});AN.rr+=ST.vx/0.2*dt;
+ for(let sd=0;sd<2;sd++){const sg=sd?1:-1,P=R.kp[sd]||new THREE.Vector3(),k=new THREE.Vector3(-Math.sin(0.1396),Math.cos(0.1396)*Math.cos(0.2094),-sg*Math.sin(0.2094)).normalize();
+  const Ms=rotAbout(k,del[sd],P),Mw=rotAbout(ZA,-AN.fr[sd],new THREE.Vector3(0,0.2,sg*0.375));
+  R.fsteer[sd].forEach(i=>setNode(i.n,Ms));R.fspin[sd].forEach(i=>setNode(i.n,new THREE.Matrix4().multiplyMatrices(Ms,Mw)))}
+ const stud=new THREE.Vector3(-0.06,0.3244,0),Mb=rotAbout(YA,-0.47*(dl+dr)/2,stud);R.bell.forEach(i=>setNode(i.n,Mb));
+ for(let sd=0;sd<2;sd++){const sg=sd?1:-1,P=R.kp[sd],A0=R.arm[sd],B0=R.bend[sd];if(!P||!A0||!B0)continue;
+  const k=new THREE.Vector3(-Math.sin(0.1396),Math.cos(0.1396)*Math.cos(0.2094),-sg*Math.sin(0.2094)).normalize(),A1=A0.clone().applyMatrix4(rotAbout(k,del[sd],P)),B1=B0.clone().applyMatrix4(Mb);
+  const q=new THREE.Quaternion().setFromUnitVectors(B0.clone().sub(A0).normalize(),B1.clone().sub(A1).normalize());
+  R.tie[sd].forEach(i=>{const m1=A1.clone().add(B1).multiplyScalar(0.5);setNode(i.n,new THREE.Matrix4().makeTranslation(m1.x-i.c.x,m1.y-i.c.y,m1.z-i.c.z).multiply(rotAbout(YA,0,i.c)).multiply(new THREE.Matrix4().makeTranslation(i.c.x,i.c.y,i.c.z)).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(new THREE.Matrix4().makeTranslation(-i.c.x,-i.c.y,-i.c.z)))})}
+ const hub=new THREE.Vector3(-1,0.2,0);R.rspin.forEach(i=>setNode(i.n,rotAbout(ZA,-AN.rr,hub)));R.cass.forEach(i=>setNode(i.n,rotAbout(ZA,-AN.cass,hub)));
+ const Mc=rotAbout(ZA,-AN.crank,BB);R.crank.concat(R.ring).forEach(i=>setNode(i.n,Mc));
+ R.pedal.forEach(i=>setNode(i.n,new THREE.Matrix4().multiplyMatrices(Mc,rotAbout(ZA,AN.crank,i.c))));
+ R.idl.forEach(i=>setNode(i.n,rotAbout(ZA,-AN.idl,i.c)));R.jock.forEach(i=>setNode(i.n,rotAbout(ZA,-AN.jock,i.c)));
+ // legs: pedal on the crank circle, knee from 2-bone IK (knee up)
+ AN.legs.forEach(l=>{const ph=l.phi0-AN.crank,P=new THREE.Vector3(BB.x+0.17*Math.cos(ph),BB.y+0.17*Math.sin(ph),l.off),A=P.clone().add(l.aOff);A.z=l.off;
+  const H=l.hip,dx=A.x-H.x,dy=A.y-H.y,d=Math.min(Math.hypot(dx,dy),(l.t+l.sh)*0.999),ux=dx/Math.hypot(dx,dy),uy=dy/Math.hypot(dx,dy),aa=(l.t*l.t-l.sh*l.sh+d*d)/(2*d),hh=Math.sqrt(Math.max(0,l.t*l.t-aa*aa));
+  let kx=H.x+ux*aa-uy*hh,ky=H.y+uy*aa+ux*hh;if(H.y+uy*aa-ux*hh>ky){kx=H.x+ux*aa+uy*hh;ky=H.y+uy*aa-ux*hh}
+  const K=new THREE.Vector3(kx,ky,l.off*0.8),Ac=new THREE.Vector3(H.x+ux*d,H.y+uy*d,l.off),T=P.clone();T.x+=0.09;
+  setLimb(l.m[0],H,K);l.m[0].visible=!(pov&&!ext);setLimb(l.m[1],K,Ac);setLimb(l.m[2],Ac,T)})}
+function animReset(){if(!AN.rig)return;const R=AN.rig;Object.values(R).forEach(v=>{(Array.isArray(v)?v.flat(2):[]).forEach(i=>{if(i&&i.n){i.n.matrixAutoUpdate=true;i.n.updateMatrix()}})});explode(+ex.value)}
+// Real vehicle model. SI units. Estimates (see params.yaml): rider 80 kg, CG 0.55 m behind front axle, 0.45 m high, mu 0.7.
+const PH={m:man.mass+80,L:man.wb,a:0.55*man.wb,h:0.45,mu:0.7,crr:0.010,cda:0.45,rho:1.2,g:9.81,pRider:120,pMotor:250,vCut:25/3.6,fMax:140,brake:5.5};
+PH.b=PH.L-PH.a;PH.Iz=PH.m*0.30*0.30*PH.L;
+const ST={vx:0,vy:0,r:0,x:0,z:0,hd:0,roll:0,ay:0,ax:0,lift:0,P:0,slipF:0,slipR:0};
+const hud=document.createElement('div');hud.style.cssText='position:fixed;right:12px;bottom:12px;background:#000a;color:#fff;font:13px monospace;padding:8px 10px;border-radius:6px;display:none;white-space:pre;pointer-events:none';document.body.appendChild(hud);
+function resetDrive(){Object.assign(ST,{vx:0,vy:0,r:0,x:-PH.a,z:0,hd:0,roll:0,ay:0,ax:0,lift:0,P:0});steer=0}
+resetDrive();
+function tyre(alpha,Fz,fx){const C=12*Fz,Fm=Math.max(1,PH.mu*Fz),k=Math.min(0.95,Math.abs(fx)/Fm);const Fy=Fm*Math.sqrt(1-k*k);return -Fy*Math.tanh(C*alpha/Fy)}
+function drive(dt){
+ const up=keys['w']||keys['arrowup'],brk=keys['s']||keys['arrowdown'],hard=keys[' '];
+ const tgt=((keys['a']||keys['arrowleft'])?1:0)-((keys['d']||keys['arrowright'])?1:0);
+ // handlebar: hands move it at a limited rate; centres when released
+ const rate=(tgt?1.2:1.8)*dt,goal=tgt*0.55;steer+=Math.max(-rate,Math.min(rate,goal-steer));
+ const n=Math.ceil(dt/0.004),h=dt/n,{m,L,a,b,Iz,g}=PH;
+ for(let i=0;i<n;i++){
+  const v=Math.max(ST.vx,0);
+  // pedal + motor (assist fades out to zero at 25 km/h), force limited by the drive
+  let P=0;if(up){P=PH.pRider+PH.pMotor*Math.max(0,Math.min(1,(PH.vCut+0.0-v)/0.55))}ST.P=P;
+  const Fdrv=up?Math.min(PH.fMax,P/Math.max(v,0.8)):0;
+  const Fres=PH.crr*m*g+0.5*PH.rho*PH.cda*v*v;
+  const dec=hard?PH.brake:(brk?PH.brake*0.45:0);const Fbrk=v>0.02?dec*m:0;
+  const Fx=Fdrv-Fbrk-Fres*Math.sign(ST.vx||1)*(v>0.02?1:0);
+  const axp=Fx/m;
+  // static weight + longitudinal transfer. Front is 2 wheels, rear is 1.
+  const Fzf=Math.max(30,m*(g*b-axp*PH.h)/L),Fzr=Math.max(30,m*g-Fzf);
+  const bf=Fbrk*0.65,vxe=Math.max(ST.vx,1.5);
+  const af=Math.atan2(ST.vy+a*ST.r,vxe)-steer,ar=Math.atan2(ST.vy-b*ST.r,vxe);
+  const Fyf=tyre(af,Fzf,bf),Fyr=tyre(ar,Fzr,Fbrk*0.35);
+  ST.slipF=af;ST.slipR=ar;
+  const ay=(Fyf*Math.cos(steer)+Fyr)/m;
+  ST.vy+=(ay-ST.vx*ST.r)*h;
+  ST.r+=((a*Fyf*Math.cos(steer)-b*Fyr)/Iz)*h;
+  ST.vx+=(axp-Fyf*Math.sin(steer)/m+ST.vy*ST.r)*h;if(ST.vx<0)ST.vx=0;
+  ST.ax=axp;ST.ay=ay+0;
+  // low speed: blend toward the kinematic (no-slip) solution so it does not wobble
+  if(ST.vx<2){const w=Math.max(0,1-ST.vx/2),rk=ST.vx*Math.tan(steer)/L;ST.r+=(rk-ST.r)*Math.min(1,w*12*h);ST.vy+=(b*rk-ST.vy)*Math.min(1,w*12*h)}
+  ST.hd+=ST.r*h;
+  const c=Math.cos(ST.hd),s=Math.sin(ST.hd);
+  ST.x+=(ST.vx*c-ST.vy*s)*h;ST.z+=(-ST.vx*s-ST.vy*c)*h;
+ }
+ // side load on the wheels: tipping needs ay*h > g*track/2 (inner front wheel unloads first)
+ const lat=ST.vx*ST.r;ST.lift=Math.abs(lat)*PH.h/(g*man.track/2);
+ const tilt=ST.lift>0.85?Math.min(0.25,(ST.lift-0.85)*1.2):0;ST.roll+=((-Math.sign(lat)*tilt)-ST.roll)*Math.min(1,6*dt);
+ const c=Math.cos(ST.hd),s=Math.sin(ST.hd);
+ veh.rotation.order='YXZ';veh.rotation.set(ST.roll,ST.hd,0);veh.position.set(ST.x+a*c,0,ST.z-a*s);const tn=Math.tan(steer),dl=Math.atan(tn/(1-tn*(man.track/2)/L)),dr=Math.atan(tn/(1+tn*(man.track/2)/L));animate(dt,dl,dr);gnd.position.x=ST.x;gnd.position.z=ST.z;
+ if(!ext){cam.rotation.set(0,0,0);cam.rotation.order='YXZ';cam.rotation.y=yaw-Math.PI/2;cam.rotation.x=pitch}
+ else{const f=new THREE.Vector3(c,0,-s),tp=new THREE.Vector3(ST.x+a*c,0.55,ST.z-a*s);
+  if(ext===1){const want=tp.clone().addScaledVector(f,-3.4);want.y=1.5;cam.position.lerp(want,Math.min(1,3*dt))}
+  else{if(!AN.bs||AN.bs.distanceTo(tp)>28||AN.bs.clone().sub(tp).dot(f)<-3){AN.bs=tp.clone().addScaledVector(f,20);AN.bs.x+=Math.cos(ST.hd)*0+Math.sin(ST.hd)*4.5;AN.bs.z+=Math.cos(ST.hd)*4.5;AN.bs.y=1.6}cam.position.copy(AN.bs)}
+  cam.lookAt(tp)}
+ hud.style.display='block';hud.textContent=`speed ${(ST.vx*3.6).toFixed(1)} km/h${ST.vx>PH.vCut-0.05?'  (assist cut-off 25)':''}\nmotor+rider ${ST.P.toFixed(0)} W\nsteer ${(steer*57.3).toFixed(0)} deg\nside g ${(ST.ay/g).toFixed(2)}  yaw ${(ST.r*57.3).toFixed(0)} deg/s\nslip front ${(ST.slipF*57.3).toFixed(1)} rear ${(ST.slipR*57.3).toFixed(1)} deg\n`+(ST.lift>1?'INNER WHEEL LIFTING':ST.lift>0.7?'inner wheel light':'wheels grounded')+(Math.abs(ST.slipF)>0.12||Math.abs(ST.slipR)>0.12?'\nSLIDING':'');
+}
 (function loop(){const now=performance.now(),dt=Math.min(0.05,(now-last)/1000);last=now;if(pov)drive(dt);requestAnimationFrame(loop);if(playing){let v=+ex.value+dir*0.004;if(v>=1){v=1;dir=-1}if(v<=0){v=0;dir=1}ex.value=v;explode(v)}if(!pov)ctl.update();R.render(S,cam);if(location.search.includes('dbg')&&pov){const w=new THREE.Vector3(),d=new THREE.Vector3();cam.getWorldPosition(w);cam.getWorldDirection(d);document.title=JSON.stringify([w.toArray().map(x=>+x.toFixed(2)),d.toArray().map(x=>+x.toFixed(2)),man.eye])}})();
 </script></body></html>
