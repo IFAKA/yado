@@ -1,0 +1,1 @@
+{"buildCommand":"npm install && mkdir -p dist/node_modules/three/examples && cp index.html model.glb manifest.json dist/ && cp -r node_modules/three/build dist/node_modules/three/ && cp -r node_modules/three/examples/jsm dist/node_modules/three/examples/","outputDirectory":"dist"}

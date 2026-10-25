@@ -2,6 +2,8 @@
 
 One-off build model of a tadpole (two wheels front, one rear) pedal-assist trike. Not certified or legal. Many numbers are estimates (see `params.yaml`, `PLAN.md`).
 
+**Live page: <https://yado-liart.vercel.app>** (Vercel, deploys `web/` with `vercel deploy --prod` from `web/`).
+
 ## Run the 3D page (view, drive, test edge cases)
 
 ```sh
