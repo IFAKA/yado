@@ -104,7 +104,7 @@ def build(reg, K, P):
     idl = [(-170.0, 325.0), (xr + 6.0, 195.0)]
     ypl = -20.0
     ip = plate_on(reg, "xz", "TR-122", "Chain idler plate", SUB, [(-205, 150), (-205, 340), (xr + 40, 340), (xr + 40, 150)],
-                  [(xr, zf, 30.3), (idl[0][0], idl[0][1], 8.4), (idl[1][0], idl[1][1], 8.4)], 5, ypl, material="S355", group="frame", label="IDLPL")
+                  [(xr, zf, 30.3), (idl[0][0], idl[0][1], 8.4), (idl[1][0], idl[1][1], 8.4), (idl[1][0] + 20.0, idl[1][1] + 35.0, 8.4)], 5, ypl, material="S355", group="frame", label="IDLPL")
     K["idler_c"] = idl; K["idler_plate"] = ip
     # ---- rear swing-arm pivot lugs + shock bridge (welded to X2 from behind)
     px = K["pivot"][0]

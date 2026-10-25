@@ -146,7 +146,7 @@ def clearances(reg, K):
     near = []
     for o in reg.insts:
         if o.part.kind in ("fastener", "cable") or o is chain: continue
-        if o.part.no in ("TR-401", "TR-406", "TR-407", "TR-408", "TR-409", "TR-410", "TR-411", "TR-412", "TR-312", "TR-307", "TR-311", "TR-404", "TR-403", "TR-402"): continue
+        if o.part.no in ("TR-401", "TR-406", "TR-407", "TR-408", "TR-409", "TR-410", "TR-411", "TR-412", "TR-417", "TR-312", "TR-307", "TR-311", "TR-404", "TR-403", "TR-402"): continue
         ob = o.solid.bounding_box(); m = 25
         if (cb.min.X > ob.max.X + m or cb.max.X < ob.min.X - m or cb.min.Y > ob.max.Y + m or cb.max.Y < ob.min.Y - m or cb.min.Z > ob.max.Z + m or cb.max.Z < ob.min.Z - m): continue
         d = min_dist(chain.solid, o.solid)
@@ -207,6 +207,7 @@ def run_all(path="params.yaml", fast=False):
     R["clearances"] = clearances(reg, K)
     R["fea"] = fea_run(reg, K, P, rider_kg=P["loads_checks"]["rider_mass_fea"]["value"], g_vert=P["loads_checks"]["vertical_g"]["value"])
     R["sightline"] = sightline(reg, K, P)
+    R["chain_tension"] = K["chain"].get("tension")
     if not fast: R["interference"] = interference(reg)
     return R, reg, K, P
 

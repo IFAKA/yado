@@ -84,6 +84,7 @@ boom:
   boom_od:              {value: 25,  status: SPEC}
 chain:
   single_speed:         {value: true, status: SPEC, note: "no derailleur / cassette; motor covers low gears. Set false for the 9-speed variant"}
+  tensioner_takeup:     {value: 30, status: TO CONFIRM, note: "mm of chain take-up of a single-speed spring tensioner; needed = 0.5 pct wear + half a link"}
   cog_teeth:            {value: 16, status: EST, note: "single rear cog (single_speed only); cadence at 25 km/h = see checks"}
   chainring_teeth:      {value: 50,  status: TO CONFIRM}
   chainline_y:          {value: -48, status: TO CONFIRM, note: "right side; BBS01B chain line ~ 47-48 mm"}

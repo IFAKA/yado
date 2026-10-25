@@ -73,13 +73,14 @@ def build(reg, K, P):
         a = thR + 2 * math.pi * k / 5
         bolt(reg, SUB, (bbx + 57 * math.cos(a), CHAIN_Y + 1.25, bbz + 57 * math.sin(a)), (0, -1, 0), 8, 15.0, targets=(), nut=False, washers=(False, False), label=f"CRB{k}")
     # ---- idlers on the idler plate
+    SS = P["chain"]["single_speed"]["value"]; Rcog = rad_of(P["chain"]["cog_teeth"]["value"] if SS else 21)
     idl = K["idler_c"]; ri = rad_of(12)
     for j, (cx, cz) in enumerate(idl):
+        if SS and j == 1: continue                                # sprung tensioner built after the chain path (below)
         wh = frame_at((cx, CHAIN_Y - 3.5, cz), (0, 1, 0)).location * (Cylinder(ri + 1.5, 7.0) - Cylinder(4.5, 9))
         buy(reg, "TR-408", "Chain idler wheel 12T, Ø8 bore (bush)", SUB, wh, material="PA / alu", stock="12T idler, 7 mm wide", cost=7.0, mass=0.03, color=(0.8, 0.5, 0.1), label=f"ID{j+1}", group=f"idl{j}")
         reg_turned(reg, "TR-409", "Idler spacer Ø14/Ø8.4 x 24.5", SUB, [(7, 0), (7, 24.5)], (cx, CHAIN_Y + 3.5 - 24.5 + 0.0 + 24.5 * 0 - 0, cz), (0, 1, 0), material="S355", stock="Ø14 bar", cost=0.8, bore=8.4, label=f"IS{j+1}").meta["group"] = f"idl{j}"
         bolt(reg, SUB, (cx, CHAIN_Y - 3.5, cz), (0, 1, 0), 8, 36.5, targets=(), nut=True, washers=(True, True), label=f"IB{j+1}")
-    SS = P["chain"]["single_speed"]["value"]; Rcog = rad_of(P["chain"]["cog_teeth"]["value"] if SS else 21)
     gx = gz = tx = tz = None
     if not SS:
         # ---- rear derailleur (simplified body, parallelogram, cage, 2 jockey wheels)
@@ -98,12 +99,31 @@ def build(reg, K, P):
             bolt(reg, SUB, (cx, -54.0, cz), (0, 1, 0), 5, 12.0, targets=(), nut=True, washers=(False, False), label=f"JB{j+1}")
     # ---- chain
     pul = [(bbx, bbz, Rr, 1), (idl[0][0], idl[0][1], ri, 1), (ax, az, Rcog, 1)] + ([] if SS else [(gx, gz, 22.4, -1), (tx, tz, 22.4, 1)]) + [(idl[1][0], idl[1][1], ri, 1)]
+    ten = None
+    if SS:
+        # sprung tensioner (replaces idler 2): slide it along the best take-up direction until the path equals the chain length
+        links = max(2, int(round(chain_path(pul)[2] / 12.7 / 2)) * 2); ux, uz = math.cos(math.radians(300)), math.sin(math.radians(300)); p3 = list(pul[3]); lo_, hi_ = -60.0, 60.0
+        def Lat(sh): q = list(pul); q[3] = (p3[0] + ux * sh, p3[1] + uz * sh, p3[2], p3[3]); return chain_path(q)[2], q
+        for _ in range(40):
+            mid = (lo_ + hi_) / 2
+            if Lat(mid)[0] < links * 12.7: lo_ = mid
+            else: hi_ = mid
+        pul = Lat(mid)[1]; cx, cz = pul[3][0], pul[3][1]
+        piv = (idl[1][0] + 20.0, idl[1][1] + 35.0)          # fixed pivot hole in the idler plate (trike/frame.py)
+        arm = cyl((cx, CHAIN_Y - 3.5, cz), (piv[0], CHAIN_Y - 3.5, piv[1]), 5.0)
+        spr = cyl((piv[0], CHAIN_Y - 3.5, piv[1]), (piv[0], CHAIN_Y + 10.0, piv[1]), 13.0)
+        wh = frame_at((cx, CHAIN_Y - 3.5, cz), (0, 1, 0)).location * (Cylinder(ri + 1.5, 7.0) - Cylinder(4.5, 9))
+        buy(reg, "TR-417", "Chain tensioner, spring arm 1 pivot + 12T pulley (take-up for wear and link steps)", SUB, wh + arm + spr, material="alu / PA / steel", stock="single-speed spring tensioner",
+            cost=14.0, mass=0.16, color=(0.8, 0.5, 0.1), label="TEN", status="TO CONFIRM", notes="replaces the second idler; absorbs chain stretch so no adjusting is needed")
+        bolt(reg, SUB, (piv[0], CHAIN_Y + 10.0, piv[1]), (0, 1, 0), 8, 30.0, targets=(), nut=True, washers=(True, True), label="TEB")
+        need = 0.005 * links * 12.7 + 12.7                       # 0.5 % chain wear + half a link of build tolerance
+        ten = dict(shift_mm=float(mid), takeup_needed_mm=float(need), takeup_offered_mm=float(P["chain"]["tensioner_takeup"]["value"]), ok=bool(need <= P["chain"]["tensioner_takeup"]["value"]))
     segs, arcs, L = chain_path(pul)
-    links = int(math.ceil(L / 12.7 / 2) * 2)
+    if not SS: links = int(math.ceil(L / 12.7 / 2) * 2)
     boxes = []
     for (a, b) in segs: boxes += sweep_poly_boxes([tuple(a), tuple(b)], 6.6, 8.5, CHAIN_Y)
     for pts in arcs: boxes += sweep_poly_boxes([tuple(p) for p in pts], 6.6, 8.5, CHAIN_Y)
     buy(reg, "TR-413", f"Chain {'1-speed' if SS else '9-speed'} 1/2x11/128, {links} links (2 chains + connector)", SUB, Compound(boxes), material="steel", stock=f"{links} links", cost=26.0, mass=round(links * 0.0023, 3),
         color=(0.35, 0.33, 0.3), label="CHN", status="TO CONFIRM", notes="link count from the modelled path at nominal boom position; re-measure on the real bike")
-    K["chain"] = dict(links=links, length=L, pul=pul, segs=[(tuple(a), tuple(b)) for a, b in segs], rd=None if SS else ((gx, gz), (tx, tz)))
+    K["chain"] = dict(tension=ten, links=links, length=L, pul=pul, segs=[(tuple(a), tuple(b)) for a, b in segs], rd=None if SS else ((gx, gz), (tx, tz)))
     return dict(links=links)
